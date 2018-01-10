@@ -330,14 +330,17 @@ gchar *slack_json_to_html(SlackAccount *sa, json_value *json, PurpleMessageFlags
 
 		char *previous_message_text = json_get_prop_strptr(json_get_prop(json, "previous_message"), "text");
 
-		slack_message_to_html(html, sa, s, flags);
-		g_string_append(html, " <font color=\"#717274\"><i>(edited)</i>");
-		if (previous_message_text) {
-			g_string_append(html, "<br>(Old message was \"");
-			slack_message_to_html(html, sa, previous_message_text, NULL);
-			g_string_append(html, "\")");
+		if (strcmp(s, previous_message_text)) {
+			/* same message -- probably what changed is attachments, so we just display them as new below */
+			slack_message_to_html(html, sa, s, flags);
+			g_string_append(html, " <font color=\"#717274\"><i>(edited)</i>");
+			if (previous_message_text) {
+				g_string_append(html, "<br>(Old message was \"");
+				slack_message_to_html(html, sa, previous_message_text, NULL);
+				g_string_append(html, "\")");
+			}
+			g_string_append(html, "</font>");
 		}
-		g_string_append(html, "</font>");
 	// If the message was deleted, we report that it was.
 	} else if (g_strcmp0(subtype, "message_deleted") == 0) {
 		char *previous_message_text = json_get_prop_strptr(json_get_prop(json, "previous_message"), "text");
