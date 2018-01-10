@@ -173,26 +173,22 @@ static const gchar *get_color(const char *c) {
 	}
 }
 
-static gchar *get_fields(json_value *fields) {
+void get_fields(GString *html, json_value *fields) {
 	if (fields == NULL) {
-		return "";
-	} else {
-		GString *html = g_string_new(NULL);
+		return;
+	}
 
-		for (int i=0; i<fields->u.array.length; i++) {
-				json_value *field = fields->u.array.values[i];
-				char *title = json_get_prop_strptr(field, "title");
-				char *value = json_get_prop_strptr(field, "value");
+	for (int i=0; i<fields->u.array.length; i++) {
+		json_value *field = fields->u.array.values[i];
+		char *title = json_get_prop_strptr(field, "title");
+		char *value = json_get_prop_strptr(field, "value");
 
-				g_string_append_printf(
-					html,
-					"<br /><br /><b>%s</b><br /><i>%s</i><br />",
-					(title == NULL) ? "Unknown Field Title" : title,
-					(value == NULL) ? "Unknown Field Value" : value
-				);
-		}
-
-		return g_string_free(html, FALSE);
+		g_string_append_printf(
+			html,
+			"<br /><b>%s</b>: <i>%s</i>",
+			(title == NULL) ? "Unknown Field Title" : title,
+			(value == NULL) ? "Unknown Field Value" : value
+		);
 	}
 }
 
@@ -227,18 +223,13 @@ static void slack_attachment_to_html(GString *html, SlackAccount *sa, json_value
 	char *author_link = json_get_prop_strptr(attachment, "author_link");
 	char *text = json_get_prop_strptr(attachment, "text");
 
-	const char *color = get_color(json_get_prop_strptr(attachment, "color"));
 	//char *fallback = json_get_prop_strptr(attachment, "fallback");
 	char *pretext = json_get_prop_strptr(attachment, "pretext");
 	
 	char *title = json_get_prop_strptr(attachment, "title");
 	char *title_link = json_get_prop_strptr(attachment, "title_link");
-	char *fields = get_fields(json_get_prop(attachment, "fields"));
 	char *footer = json_get_prop_strptr(attachment, "footer");
 	time_t ts = slack_parse_time(json_get_prop(attachment, "ts"));
-
-	GString *border = g_string_new(NULL);
-	g_string_printf(border, "</b><font color=\"%s\">————————————</font>", color);
 
 	// Sometimes, the text of the attachment can be *really* large.  The official
 	// Slack client will truncate the text at x-characters and have a "Read More"
@@ -257,68 +248,57 @@ static void slack_attachment_to_html(GString *html, SlackAccount *sa, json_value
 		(strlen(formatted_text) > 480) ? "…" : ""
 	); */
 
-	g_string_append(html, "<br /><font color=\"#717274\">");
+	g_string_append_printf(html, "<font color=\"%s\">", get_color(json_get_prop_strptr(attachment, "color")));
 
 	// pretext
 	if (pretext) {
-		slack_message_to_html(html, sa, pretext, NULL);
 		g_string_append(html, "<br />");
+		slack_message_to_html(html, sa, pretext, NULL);
 	}
-	g_string_append(html, "<br />");
-
-	// top border
-	g_string_append(html, border->str);
-	g_string_append(html, "<br />");
 
 	// service name and author name
-	g_string_append(html, "<b>");
-	link(html, service_link, service_name);
-	if (service_name && author_name)
-		g_string_append(html, " - ");
-	link(html, author_link, author_name);
-	if (author_subname)
-		g_string_append(html, author_subname);
-	g_string_append(html, "</b>");
-	if (service_name != NULL || author_name != NULL || author_subname != NULL)
+	if (service_name != NULL || author_name != NULL || author_subname != NULL) {
 		g_string_append(html, "<br />");
+		g_string_append(html, "<b>");
+		link(html, service_link, service_name);
+		if (service_name && author_name)
+			g_string_append(html, " - ");
+		link(html, author_link, author_name);
+		if (author_subname)
+			g_string_append(html, author_subname);
+		g_string_append(html, "</b>");
+	}
 
 	// title
-	g_string_append(html, "<b><i>");
-	link(html, title_link, title);
-	g_string_append(html, "</i></b>");
-	if (title)
-		g_string_append(html, "<br /><br />");
+	if (title) {
+		g_string_append(html, "<br />");
+		g_string_append(html, "<b><i>");
+		link(html, title_link, title);
+		g_string_append(html, "</i></b>");
+	}
 
 	// main text
 	if (text) {
+		g_string_append(html, "<br />");
 		g_string_append(html, "<i>");
 		slack_message_to_html(html, sa, text, NULL);
 		g_string_append(html, "</i>");
 	}
 
 	// fields
-	if (fields && *fields) {
-		g_string_append(html, "<br />");
-		g_string_append(html, fields);
-	}
-
-	// bottom border
-	g_string_append(html, border->str);
-	g_string_append(html, "<br />");
+	get_fields(html, json_get_prop_type(attachment, "fields", array));
 
 	// footer
 	if (footer) {
-		g_string_append(html, footer);
 		g_string_append(html, "<br />");
-		if (ts)
-			g_string_append(html, ctime(&ts));
+		g_string_append(html, footer);
+	}
+	if (ts) {
+		g_string_append(html, "<br />");
+		g_string_append(html, ctime(&ts));
 	}
 
 	g_string_append(html, "</font>");
-
-	// Free up the GStrings that we don't need anymore.
-	g_string_free(border, TRUE);
-	//g_string_free(truncated_text, TRUE);
 }
 
 static void add_slack_attachments_to_buffer(GString *buffer, SlackAccount *sa, json_value *attachments) {
@@ -340,10 +320,6 @@ gchar *slack_json_to_html(SlackAccount *sa, json_value *json, PurpleMessageFlags
 	
 	GString *html = g_string_new(NULL);
 
-	// If there are attachements, show them.
-	add_slack_attachments_to_buffer(html, sa, json_get_prop_type(message, "attachments", array));
-	add_slack_attachments_to_buffer(html, sa, json_get_prop_type(json, "attachments", array));
-	
 	// Check to see if the message is a special subtype.
 	// If the message was editted, we show how the message was changed.
 	// We do this by displayed the changed message and what it was originally,
@@ -382,6 +358,10 @@ gchar *slack_json_to_html(SlackAccount *sa, json_value *json, PurpleMessageFlags
 
 		slack_message_to_html(html, sa, json_get_prop_strptr(json, "text"), flags);
 	}
+
+	// If there are attachements, show them.
+	add_slack_attachments_to_buffer(html, sa, json_get_prop_type(message, "attachments", array));
+	add_slack_attachments_to_buffer(html, sa, json_get_prop_type(json, "attachments", array));
 
 	return g_string_free(html, FALSE);
 }
