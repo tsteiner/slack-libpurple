@@ -231,6 +231,9 @@ static void slack_attachment_to_html(GString *html, SlackAccount *sa, json_value
 	char *footer = json_get_prop_strptr(attachment, "footer");
 	time_t ts = slack_parse_time(json_get_prop(attachment, "ts"));
 
+	GString *brtag = g_string_new("<br/>");
+	g_string_append_printf(brtag, "<font color=\"%s\">|</font> ", get_color(json_get_prop_strptr(attachment, "color")));
+
 	// Sometimes, the text of the attachment can be *really* large.  The official
 	// Slack client will truncate the text at x-characters and have a "Read More"
 	// link so the user can read the rest of the text.  I wasn't sure what the
@@ -248,17 +251,15 @@ static void slack_attachment_to_html(GString *html, SlackAccount *sa, json_value
 		(strlen(formatted_text) > 480) ? "…" : ""
 	); */
 
-	g_string_append_printf(html, "<font color=\"%s\">", get_color(json_get_prop_strptr(attachment, "color")));
-
 	// pretext
 	if (pretext) {
-		g_string_append(html, "<br />");
+		g_string_append(html, brtag->str);
 		slack_message_to_html(html, sa, pretext, NULL);
 	}
 
 	// service name and author name
 	if (service_name != NULL || author_name != NULL || author_subname != NULL) {
-		g_string_append(html, "<br />");
+		g_string_append(html, brtag->str);
 		g_string_append(html, "<b>");
 		link(html, service_link, service_name);
 		if (service_name && author_name)
@@ -271,7 +272,7 @@ static void slack_attachment_to_html(GString *html, SlackAccount *sa, json_value
 
 	// title
 	if (title) {
-		g_string_append(html, "<br />");
+		g_string_append(html, brtag->str);
 		g_string_append(html, "<b><i>");
 		link(html, title_link, title);
 		g_string_append(html, "</i></b>");
@@ -279,7 +280,7 @@ static void slack_attachment_to_html(GString *html, SlackAccount *sa, json_value
 
 	// main text
 	if (text) {
-		g_string_append(html, "<br />");
+		g_string_append(html, brtag->str);
 		g_string_append(html, "<i>");
 		slack_message_to_html(html, sa, text, NULL);
 		g_string_append(html, "</i>");
@@ -290,15 +291,15 @@ static void slack_attachment_to_html(GString *html, SlackAccount *sa, json_value
 
 	// footer
 	if (footer) {
-		g_string_append(html, "<br />");
+		g_string_append(html, brtag->str);
 		g_string_append(html, footer);
 	}
 	if (ts) {
-		g_string_append(html, "<br />");
+		g_string_append(html, brtag->str);
 		g_string_append(html, ctime(&ts));
 	}
 
-	g_string_append(html, "</font>");
+	g_string_free(brtag, TRUE);
 }
 
 static void add_slack_attachments_to_buffer(GString *buffer, SlackAccount *sa, json_value *attachments) {
