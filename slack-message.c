@@ -232,7 +232,12 @@ static void slack_attachment_to_html(GString *html, SlackAccount *sa, json_value
 	time_t ts = slack_parse_time(json_get_prop(attachment, "ts"));
 
 	GString *brtag = g_string_new("<br/>");
-	g_string_append_printf(brtag, "<font color=\"%s\">|</font> ", get_color(json_get_prop_strptr(attachment, "color")));
+	g_string_append_printf(
+		brtag,
+		"<font color=\"%s\">%s</font> ",
+		get_color(json_get_prop_strptr(attachment, "color")),
+		purple_account_get_string(sa->account, "attachment_prefix", "▎")
+	);
 
 	// Sometimes, the text of the attachment can be *really* large.  The official
 	// Slack client will truncate the text at x-characters and have a "Read More"
