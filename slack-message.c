@@ -71,7 +71,7 @@ gchar *slack_html_to_message(SlackAccount *sa, const char *s, PurpleMessageFlags
 	return g_string_free(msg, FALSE);
 }
 
-void slack_message_to_html(GString *html, SlackAccount *sa, gchar *s, PurpleMessageFlags *flags) {
+void slack_message_to_html(GString *html, SlackAccount *sa, gchar *s, PurpleMessageFlags *flags, gchar *prepend_newline_str) {
 	g_return_if_fail(s);
 
 	if (flags)
@@ -84,6 +84,12 @@ void slack_message_to_html(GString *html, SlackAccount *sa, gchar *s, PurpleMess
 		char c = *s++;
 		if (c == '\n') {
 			g_string_append(html, "<BR>");
+			
+			// This is here for attachments.  If this message is part of an attachment,
+			// we must add the preprend string after every newline.
+			if (prepend_newline_str) {
+				g_string_append(html, prepend_newline_str);
+			}
 			continue;
 		}
 		if (c != '<') {
@@ -173,7 +179,7 @@ static const gchar *get_color(const char *c) {
 	}
 }
 
-void get_fields(GString *html, json_value *fields) {
+static void get_fields(GString *html, json_value *fields, char *newline_suffix) {
 	if (fields == NULL) {
 		return;
 	}
@@ -185,7 +191,8 @@ void get_fields(GString *html, json_value *fields) {
 
 		g_string_append_printf(
 			html,
-			"<br /><b>%s</b>: <i>%s</i>",
+			"<br />%s<b>%s</b>: <i>%s</i>",
+			newline_suffix,
 			(title == NULL) ? "Unknown Field Title" : title,
 			(value == NULL) ? "Unknown Field Value" : value
 		);
@@ -229,15 +236,23 @@ static void slack_attachment_to_html(GString *html, SlackAccount *sa, json_value
 	char *title = json_get_prop_strptr(attachment, "title");
 	char *title_link = json_get_prop_strptr(attachment, "title_link");
 	char *footer = json_get_prop_strptr(attachment, "footer");
-	time_t ts = slack_parse_time(json_get_prop(attachment, "ts"));
-
+	GString *attachment_prefix = g_string_new("");
 	GString *brtag = g_string_new("<br/>");
+
 	g_string_append_printf(
-		brtag,
+		attachment_prefix,
 		"<font color=\"%s\">%s</font> ",
 		get_color(json_get_prop_strptr(attachment, "color")),
 		purple_account_get_string(sa->account, "attachment_prefix", "▎")
 	);
+
+	g_string_append(
+		brtag,
+		attachment_prefix->str
+	);
+
+	time_t ts = slack_parse_time(json_get_prop(attachment, "ts"));
+
 
 	// Sometimes, the text of the attachment can be *really* large.  The official
 	// Slack client will truncate the text at x-characters and have a "Read More"
@@ -259,7 +274,7 @@ static void slack_attachment_to_html(GString *html, SlackAccount *sa, json_value
 	// pretext
 	if (pretext) {
 		g_string_append(html, brtag->str);
-		slack_message_to_html(html, sa, pretext, NULL);
+		slack_message_to_html(html, sa, pretext, NULL, attachment_prefix->str);
 	}
 
 	// service name and author name
@@ -287,12 +302,12 @@ static void slack_attachment_to_html(GString *html, SlackAccount *sa, json_value
 	if (text) {
 		g_string_append(html, brtag->str);
 		g_string_append(html, "<i>");
-		slack_message_to_html(html, sa, text, NULL);
+		slack_message_to_html(html, sa, text, NULL, attachment_prefix->str);
 		g_string_append(html, "</i>");
 	}
 
 	// fields
-	get_fields(html, json_get_prop_type(attachment, "fields", array));
+	get_fields(html, json_get_prop_type(attachment, "fields", array), attachment_prefix->str);
 
 	// footer
 	if (footer) {
@@ -305,6 +320,7 @@ static void slack_attachment_to_html(GString *html, SlackAccount *sa, json_value
 	}
 
 	g_string_free(brtag, TRUE);
+	g_string_free(attachment_prefix, TRUE);
 }
 
 static void add_slack_attachments_to_buffer(GString *buffer, SlackAccount *sa, json_value *attachments) {
@@ -338,11 +354,11 @@ gchar *slack_json_to_html(SlackAccount *sa, json_value *json, PurpleMessageFlags
 
 		if (strcmp(s, previous_message_text)) {
 			/* same message -- probably what changed is attachments, so we just display them as new below */
-			slack_message_to_html(html, sa, s, flags);
+			slack_message_to_html(html, sa, s, flags, NULL);
 			g_string_append(html, " <font color=\"#717274\"><i>(edited)</i>");
 			if (previous_message_text) {
 				g_string_append(html, "<br>(Old message was \"");
-				slack_message_to_html(html, sa, previous_message_text, NULL);
+				slack_message_to_html(html, sa, previous_message_text, NULL, NULL);
 				g_string_append(html, "\")");
 			}
 			g_string_append(html, "</font>");
@@ -354,7 +370,7 @@ gchar *slack_json_to_html(SlackAccount *sa, json_value *json, PurpleMessageFlags
 		g_string_append(html, "<font color=\"#717274\">(<i>Deleted message</i>");
 		if (previous_message_text) {
 			g_string_append(html, ": \"");
-			slack_message_to_html(html, sa, previous_message_text, NULL);
+			slack_message_to_html(html, sa, previous_message_text, NULL, NULL);
 			g_string_append(html, "\"");
 		}
 		g_string_append(html, ")</font>");
@@ -365,7 +381,7 @@ gchar *slack_json_to_html(SlackAccount *sa, json_value *json, PurpleMessageFlags
 		else if (subtype)
 			*flags |= PURPLE_MESSAGE_SYSTEM;
 
-		slack_message_to_html(html, sa, json_get_prop_strptr(json, "text"), flags);
+		slack_message_to_html(html, sa, json_get_prop_strptr(json, "text"), flags, NULL);
 	}
 
 	// If there are attachements, show them.

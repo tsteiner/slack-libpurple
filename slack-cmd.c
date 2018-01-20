@@ -53,7 +53,7 @@ static void send_cmd_cb(SlackAccount *sa, gpointer data, json_value *json, const
 	if (response) {
 		GString *html = g_string_new(NULL);
 		PurpleMessageFlags flags = PURPLE_MESSAGE_SYSTEM;
-		slack_message_to_html(html, sa, response, &flags);
+		slack_message_to_html(html, sa, response, &flags, NULL);
 		purple_conversation_write(conv, NULL, html->str, flags, time(NULL));
 		g_string_free(html, TRUE);
 	}
