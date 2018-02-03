@@ -383,7 +383,7 @@ static void handle_message(SlackAccount *sa, SlackObject *obj, json_value *json,
 		/* Channel */
 		if (!chan->cid) {
 			if (!purple_account_get_bool(sa->account, "open_chat", FALSE)) {
-				g_free(html);
+				g_string_free(html, TRUE);
 				return;
 			}
 			slack_chat_open(sa, chan);
