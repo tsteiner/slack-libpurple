@@ -7,7 +7,7 @@
 
 gchar *slack_html_to_message(SlackAccount *sa, const char *s, PurpleMessageFlags flags);
 void slack_message_to_html(GString *html, SlackAccount *sa, gchar *s, PurpleMessageFlags *flags, gchar *prepend_newline_str);
-gchar *slack_json_to_html(SlackAccount *sa, json_value *json, PurpleMessageFlags *flags);
+void slack_json_to_html(GString *html, SlackAccount *sa, json_value *json, PurpleMessageFlags *flags);
 SlackObject *slack_conversation_get_channel(SlackAccount *sa, PurpleConversation *conv);
 void slack_get_history(SlackAccount *sa, SlackObject *obj, const char *since, unsigned count);
 void slack_mark_conversation(SlackAccount *sa, PurpleConversation *conv);

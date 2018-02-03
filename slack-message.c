@@ -136,6 +136,7 @@ void slack_message_to_html(GString *html, SlackAccount *sa, gchar *s, PurpleMess
 						b = user->name;
 				}
 				g_string_append(html, b ?: s);
+				break;
 			case '!':
 				s++;
 				if (!strcmp(s, "channel") || !strcmp(s, "group") || !strcmp(s, "here") || !strcmp(s, "everyone")) {
@@ -179,30 +180,10 @@ static const gchar *get_color(const char *c) {
 	}
 }
 
-static void get_fields(GString *html, json_value *fields, char *newline_suffix) {
-	if (fields == NULL) {
-		return;
-	}
-
-	for (int i=0; i<fields->u.array.length; i++) {
-		json_value *field = fields->u.array.values[i];
-		char *title = json_get_prop_strptr(field, "title");
-		char *value = json_get_prop_strptr(field, "value");
-
-		g_string_append_printf(
-			html,
-			"<br />%s<b>%s</b>: <i>%s</i>",
-			newline_suffix,
-			(title == NULL) ? "Unknown Field Title" : title,
-			(value == NULL) ? "Unknown Field Value" : value
-		);
-	}
-}
-
 /*
  * make a link if url is not NULL.  Otherwise, just give the text back.
  */
-static void link(GString *html, char *url, char *text) {
+static void link_html(GString *html, char *url, char *text) {
 	if (!text) {
 		return;
 	} else if (url) {
@@ -236,18 +217,16 @@ static void slack_attachment_to_html(GString *html, SlackAccount *sa, json_value
 	char *title = json_get_prop_strptr(attachment, "title");
 	char *title_link = json_get_prop_strptr(attachment, "title_link");
 	char *footer = json_get_prop_strptr(attachment, "footer");
-	GString *attachment_prefix = g_string_new("");
-	GString *brtag = g_string_new("<br/>");
+	GString *attachment_prefix = g_string_new(NULL);
 
-	g_string_append_printf(
-		attachment_prefix,
-		"<font color=\"%s\">%s</font> ",
+	g_string_printf(attachment_prefix,
+		"<font color=\"%s\">%s</font>",
 		get_color(json_get_prop_strptr(attachment, "color")),
-		purple_account_get_string(sa->account, "attachment_prefix", "▎")
+		purple_account_get_string(sa->account, "attachment_prefix", "▎ ")
 	);
 
-	g_string_append(
-		brtag,
+	GString *brtag = g_string_new("<br/>");
+	g_string_append(brtag,
 		attachment_prefix->str
 	);
 
@@ -281,10 +260,10 @@ static void slack_attachment_to_html(GString *html, SlackAccount *sa, json_value
 	if (service_name != NULL || author_name != NULL || author_subname != NULL) {
 		g_string_append(html, brtag->str);
 		g_string_append(html, "<b>");
-		link(html, service_link, service_name);
+		link_html(html, service_link, service_name);
 		if (service_name && author_name)
 			g_string_append(html, " - ");
-		link(html, author_link, author_name);
+		link_html(html, author_link, author_name);
 		if (author_subname)
 			g_string_append(html, author_subname);
 		g_string_append(html, "</b>");
@@ -294,7 +273,7 @@ static void slack_attachment_to_html(GString *html, SlackAccount *sa, json_value
 	if (title) {
 		g_string_append(html, brtag->str);
 		g_string_append(html, "<b><i>");
-		link(html, title_link, title);
+		link_html(html, title_link, title);
 		g_string_append(html, "</i></b>");
 	}
 
@@ -307,7 +286,21 @@ static void slack_attachment_to_html(GString *html, SlackAccount *sa, json_value
 	}
 
 	// fields
-	get_fields(html, json_get_prop_type(attachment, "fields", array), attachment_prefix->str);
+	json_value *fields = json_get_prop_type(attachment, "fields", array);
+	if (fields) {
+		for (int i=0; i<fields->u.array.length; i++) {
+			json_value *field = fields->u.array.values[i];
+			char *title = json_get_prop_strptr(field, "title");
+			char *value = json_get_prop_strptr(field, "value");
+
+			g_string_append_printf(html,
+				"<br />%s<b>%s</b>: <i>%s</i>",
+				attachment_prefix->str,
+				(title == NULL) ? "Unknown Field Title" : title,
+				(value == NULL) ? "Unknown Field Value" : value
+			);
+		}
+	}
 
 	// footer
 	if (footer) {
@@ -323,86 +316,59 @@ static void slack_attachment_to_html(GString *html, SlackAccount *sa, json_value
 	g_string_free(attachment_prefix, TRUE);
 }
 
-static void add_slack_attachments_to_buffer(GString *buffer, SlackAccount *sa, json_value *attachments) {
-	if (attachments) {
-
-		int length = attachments->u.array.length;
-
-		for (int i=0; i < length; i++) {
-			json_value *attachment = attachments->u.array.values[i];
-
-			slack_attachment_to_html(buffer, sa, attachment);
-		}
-	}
-}
-
-gchar *slack_json_to_html(SlackAccount *sa, json_value *json, PurpleMessageFlags *flags) {
-	const char *subtype = json_get_prop_strptr(json, "subtype");
-	json_value *message = json_get_prop(json, "message");
+void slack_json_to_html(GString *html, SlackAccount *sa, json_value *message, PurpleMessageFlags *flags) {
+	const char *subtype = json_get_prop_strptr(message, "subtype");
 	
-	GString *html = g_string_new(NULL);
+	if (flags && json_get_prop_boolean(message, "hidden", FALSE))
+		*flags |= PURPLE_MESSAGE_INVISIBLE;
 
-	// Check to see if the message is a special subtype.
-	// If the message was editted, we show how the message was changed.
-	// We do this by displayed the changed message and what it was originally,
-	// since we can't do what the official slack plugin does and rewrite history.
-	if (g_strcmp0(subtype, "message_changed") == 0) {
-		json_value *message = json_get_prop(json, "message");
-		char *s = json_get_prop_strptr(message, "text");
+	if (!g_strcmp0(subtype, "me_message"))
+		g_string_append(html, "/me ");
+	else if (subtype && flags)
+		*flags |= PURPLE_MESSAGE_SYSTEM;
 
-		char *previous_message_text = json_get_prop_strptr(json_get_prop(json, "previous_message"), "text");
-
-		if (strcmp(s, previous_message_text)) {
-			/* same message -- probably what changed is attachments, so we just display them as new below */
-			slack_message_to_html(html, sa, s, flags, NULL);
-			g_string_append(html, " <font color=\"#717274\"><i>(edited)</i>");
-			if (previous_message_text) {
-				g_string_append(html, "<br>(Old message was \"");
-				slack_message_to_html(html, sa, previous_message_text, NULL, NULL);
-				g_string_append(html, "\")");
-			}
-			g_string_append(html, "</font>");
-		}
-	// If the message was deleted, we report that it was.
-	} else if (g_strcmp0(subtype, "message_deleted") == 0) {
-		char *previous_message_text = json_get_prop_strptr(json_get_prop(json, "previous_message"), "text");
-
-		g_string_append(html, "<font color=\"#717274\">(<i>Deleted message</i>");
-		if (previous_message_text) {
-			g_string_append(html, ": \"");
-			slack_message_to_html(html, sa, previous_message_text, NULL, NULL);
-			g_string_append(html, "\"");
-		}
-		g_string_append(html, ")</font>");
-	// assume this is just a text message.
-	} else {
-		if (!g_strcmp0(subtype, "me_message"))
-			g_string_append(html, "/me ");
-		else if (subtype)
-			*flags |= PURPLE_MESSAGE_SYSTEM;
-
-		slack_message_to_html(html, sa, json_get_prop_strptr(json, "text"), flags, NULL);
-	}
+	slack_message_to_html(html, sa, json_get_prop_strptr(message, "text"), flags, NULL);
 
 	// If there are attachements, show them.
-	add_slack_attachments_to_buffer(html, sa, json_get_prop_type(message, "attachments", array));
-	add_slack_attachments_to_buffer(html, sa, json_get_prop_type(json, "attachments", array));
-
-	return g_string_free(html, FALSE);
+	json_value *attachments = json_get_prop_type(message, "attachments", array);
+	if (attachments)
+		for (int i=0; i < attachments->u.array.length; i++)
+			slack_attachment_to_html(html, sa, attachments->u.array.values[i]);
 }
 
 static void handle_message(SlackAccount *sa, SlackObject *obj, json_value *json, PurpleMessageFlags flags) {
-	const char *user_id     = json_get_prop_strptr(json, "user");
 	const char *subtype     = json_get_prop_strptr(json, "subtype");
-	const gboolean isHidden = json_get_prop_boolean(json, "hidden", FALSE);
-	gchar *html;
 	json_value *ts          = json_get_prop(json, "ts");
 	time_t mt = slack_parse_time(ts);
+	json_value *message     = json;
+	GString *html = g_string_new(NULL);
 
-	if (isHidden) {
-		flags |= PURPLE_MESSAGE_INVISIBLE;
+	if (!g_strcmp0(subtype, "message_changed")) {
+		message = json_get_prop(json, "message");
+		json_value *old_message = json_get_prop(json, "previous_message");
+		/* this may consist only of added attachments, no changed text */
+		gboolean changed = g_strcmp0(json_get_prop_strptr(message, "text"), json_get_prop_strptr(old_message, "text"));
+		g_string_append(html, "<font color=\"#717274\"><i>[edit]</i></font> ");
+		slack_json_to_html(html, sa, message, &flags);
+		if (old_message && changed) {
+			g_string_append(html, "<br>(Old message: ");
+			slack_json_to_html(html, sa, old_message, NULL);
+			g_string_append(html, ")");
+		}
 	}
+	else if (!g_strcmp0(subtype, "message_deleted")) {
+		message = json_get_prop(json, "previous_message");
+		g_string_append(html, "(<font color=\"#717274\"><i>Deleted message</i></font>");
+		if (message) {
+			g_string_append(html, ": ");
+			slack_json_to_html(html, sa, message, &flags);
+		}
+		g_string_append(html, ")");
+	}
+	else
+		slack_json_to_html(html, sa, message, &flags);
 
+	const char *user_id = json_get_prop_strptr(message, "user");
 	SlackUser *user = NULL;
 	if (slack_object_id_is(sa->self->object.id, user_id)) {
 		user = sa->self;
@@ -411,8 +377,6 @@ static void handle_message(SlackAccount *sa, SlackObject *obj, json_value *json,
 #endif
 	}
 
-	html = slack_json_to_html(sa, json, &flags);
-	
 	PurpleConversation *conv = NULL;
 	if (SLACK_IS_CHANNEL(obj)) {
 		SlackChannel *chan = (SlackChannel*)obj;
@@ -437,24 +401,24 @@ static void handle_message(SlackAccount *sa, SlackObject *obj, json_value *json,
 				purple_conv_chat_set_topic(chat, user ? user->name : user_id, json_get_prop_strptr(json, "topic"));
 		}
 		
-		serv_got_chat_in(sa->gc, chan->cid, user ? user->name : user_id ?: "", flags, html, mt);
+		serv_got_chat_in(sa->gc, chan->cid, user ? user->name : user_id ?: "", flags, html->str, mt);
 	} else if (SLACK_IS_USER(obj)) {
 		SlackUser *im = (SlackUser*)obj;
 		/* IM */
 		conv = purple_find_conversation_with_account(PURPLE_CONV_TYPE_IM, im->name, sa->account);
 		if (slack_object_id_is(im->object.id, user_id))
-			serv_got_im(sa->gc, im->name, html, flags, mt);
+			serv_got_im(sa->gc, im->name, html->str, flags, mt);
 		else {
 			if (!conv)
 				conv = purple_conversation_new(PURPLE_CONV_TYPE_IM, sa->account, im->name);
 			if (!user)
 				/* is this necessary? shouldn't be anyone else in here */
 				user = (SlackUser*)slack_object_hash_table_lookup(sa->users, user_id);
-			purple_conversation_write(conv, user ? user->name : user_id, html, flags, mt);
+			purple_conversation_write(conv, user ? user->name : user_id, html->str, flags, mt);
 		}
 	}
 
-	g_free(html);
+	g_string_free(html, TRUE);
 
 	/* update most recent ts for later marking */
 	if (conv && json_get_strptr(ts)) {
