@@ -114,18 +114,22 @@ static void im_list_cb(SlackAccount *sa, gpointer data, json_value *json, const 
 		return;
 	}
 
-	g_hash_table_remove_all(sa->ims);
 	for (unsigned i = 0; i < ims->u.array.length; i ++)
 		im_update(sa, ims->u.array.values[i], &json_value_none);
 
-	slack_presence_sub(sa);
-
-	slack_channels_load(sa);
+	char *cursor = json_get_prop_strptr(json_get_prop(json, "response_metadata"), "next_cursor");
+	if (cursor && *cursor)
+		slack_api_call(sa, im_list_cb, NULL, "im.list", SLACK_PAGINATE_LIMIT, "cursor", cursor, NULL);
+	else {
+		slack_presence_sub(sa);
+		slack_channels_load(sa);
+	}
 }
 
 void slack_ims_load(SlackAccount *sa) {
 	purple_connection_update_progress(sa->gc, "Loading IM channels", 5, SLACK_CONNECT_STEPS);
-	slack_api_call(sa, im_list_cb, NULL, "im.list", NULL);
+	g_hash_table_remove_all(sa->ims);
+	slack_api_call(sa, im_list_cb, NULL, "im.list", SLACK_PAGINATE_LIMIT, NULL);
 }
 
 struct send_im {

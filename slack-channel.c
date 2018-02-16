@@ -140,11 +140,14 @@ static void channels_list_cb(SlackAccount *sa, gpointer data, json_value *json, 
 		return;
 	}
 
-	g_hash_table_remove_all(sa->channels);
 	for (unsigned i = 0; i < chans->u.array.length; i++)
 		channel_update(sa, chans->u.array.values[i], SLACK_CHANNEL_PUBLIC);
 
-	slack_groups_load(sa);
+	char *cursor = json_get_prop_strptr(json_get_prop(json, "response_metadata"), "next_cursor");
+	if (cursor && *cursor)
+		slack_api_call(sa, channels_list_cb, NULL, "channels.list", "exclude_archived", "true", "exclude_members", "true", SLACK_PAGINATE_LIMIT, "cursor", cursor, NULL);
+	else
+		slack_groups_load(sa);
 }
 
 static void groups_list_cb(SlackAccount *sa, gpointer data, json_value *json, const char *error) {
@@ -158,17 +161,22 @@ static void groups_list_cb(SlackAccount *sa, gpointer data, json_value *json, co
 	for (unsigned i = 0; i < chans->u.array.length; i++)
 		channel_update(sa, chans->u.array.values[i], SLACK_CHANNEL_GROUP);
 
-	purple_connection_set_state(sa->gc, PURPLE_CONNECTED);
+	char *cursor = json_get_prop_strptr(json_get_prop(json, "response_metadata"), "next_cursor");
+	if (cursor && *cursor)
+		slack_api_call(sa, groups_list_cb, NULL, "groups.list", "exclude_archived", "true", SLACK_PAGINATE_LIMIT, "cursor", cursor, NULL);
+	else
+		purple_connection_set_state(sa->gc, PURPLE_CONNECTED);
 }
 
 void slack_channels_load(SlackAccount *sa) {
 	purple_connection_update_progress(sa->gc, "Loading Channels", 6, SLACK_CONNECT_STEPS);
-	slack_api_call(sa, channels_list_cb, NULL, "channels.list", "exclude_archived", "true", "exclude_members", "true", NULL);
+	g_hash_table_remove_all(sa->channels);
+	slack_api_call(sa, channels_list_cb, NULL, "channels.list", "exclude_archived", "true", "exclude_members", "true", SLACK_PAGINATE_LIMIT, NULL);
 }
 
 void slack_groups_load(SlackAccount *sa) {
 	purple_connection_update_progress(sa->gc, "Loading Groups", 7, SLACK_CONNECT_STEPS);
-	slack_api_call(sa, groups_list_cb, NULL, "groups.list", "exclude_archived", "true", NULL);
+	slack_api_call(sa, groups_list_cb, NULL, "groups.list", "exclude_archived", "true", SLACK_PAGINATE_LIMIT, NULL);
 }
 
 struct join_channel {

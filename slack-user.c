@@ -83,7 +83,6 @@ void slack_user_changed(SlackAccount *sa, json_value *json) {
 }
 
 static void users_list_cb(SlackAccount *sa, gpointer data, json_value *json, const char *error) {
-
 	json_value *members = json_get_prop_type(json, "members", array);
 	if (!members) {
 		purple_connection_error_reason(sa->gc,
@@ -91,16 +90,20 @@ static void users_list_cb(SlackAccount *sa, gpointer data, json_value *json, con
 		return;
 	}
 
-	g_hash_table_remove_all(sa->users);
 	for (unsigned i = 0; i < members->u.array.length; i ++)
 		slack_user_update(sa, members->u.array.values[i]);
 
-	slack_ims_load(sa);
+	char *cursor = json_get_prop_strptr(json_get_prop(json, "response_metadata"), "next_cursor");
+	if (cursor && *cursor)
+		slack_api_call(sa, users_list_cb, NULL, "users.list", "presence", "false", SLACK_PAGINATE_LIMIT, "cursor", cursor, NULL);
+	else
+		slack_ims_load(sa);
 }
 
 void slack_users_load(SlackAccount *sa) {
 	purple_connection_update_progress(sa->gc, "Loading Users", 4, SLACK_CONNECT_STEPS);
-	slack_api_call(sa, users_list_cb, NULL, "users.list", "presence", "false", NULL);
+	g_hash_table_remove_all(sa->users);
+	slack_api_call(sa, users_list_cb, NULL, "users.list", "presence", "false", SLACK_PAGINATE_LIMIT, NULL);
 }
 
 static void presence_set(SlackAccount *sa, json_value *json, const char *presence) {
