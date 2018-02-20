@@ -16,6 +16,7 @@ PurpleConnectionError slack_api_connection_error(const gchar *error) {
 
 struct _SlackAPICall {
 	SlackAccount *sa;
+	char *url;
 	PurpleUtilFetchUrlData *fetch;
 	SlackAPICallback *callback;
 	gpointer data;
@@ -24,8 +25,11 @@ struct _SlackAPICall {
 static void api_error(SlackAPICall *call, const char *error) {
 	if (call->callback)
 		call->callback(call->sa, call->data, NULL, error);
+	g_free(call->url);
 	g_free(call);
 };
+
+static gboolean api_retry(gpointer data);
 
 static void api_cb(G_GNUC_UNUSED PurpleUtilFetchUrlData *fetch, gpointer data, const gchar *buf, gsize len, const gchar *error) {
 	SlackAPICall *call = data;
@@ -44,14 +48,33 @@ static void api_cb(G_GNUC_UNUSED PurpleUtilFetchUrlData *fetch, gpointer data, c
 
 	if (!json_get_prop_boolean(json, "ok", FALSE)) {
 		const char *err = json_get_prop_strptr(json, "error");
+		if (!g_strcmp0(err, "ratelimited")) {
+			/* #27: correct thing to do on 429 status is parse the "Retry-After" header and wait that many seconds,
+			 * but getting access to the headers here requires more work, so we just heuristically make up a number... */
+			purple_timeout_add_seconds(10, api_retry, call);
+			json_value_free(json);
+			return;
+		}
 		api_error(call, err ?: "Unknown error");
-		call = NULL;
-	} else if (call->callback) {
+		json_value_free(json);
+		return;
+	}
+
+	if (call->callback) {
 		call->callback(call->sa, call->data, json, NULL);
 	}
 
 	json_value_free(json);
+	g_free(call->url);
 	g_free(call);
+}
+
+static gboolean api_retry(gpointer data) {
+	SlackAPICall *call = data;
+	call->fetch = purple_util_fetch_url_request_len_with_account(call->sa->account,
+			call->url, TRUE, NULL, TRUE, NULL, FALSE, 4096*1024,
+			api_cb, call);
+	return FALSE;
 }
 
 static GString *slack_api_encode_url(SlackAccount *sa, const char *pfx, const char *method, va_list qargs) {
@@ -71,12 +94,11 @@ static void slack_api_call_url(SlackAccount *sa, SlackAPICallback callback, gpoi
 	SlackAPICall *call = g_new0(SlackAPICall, 1);
 	call->sa = sa;
 	call->callback = callback;
+	call->url = g_strdup(url);
 	call->data = user_data;
 
 	purple_debug_misc("slack", "api call: %s\n", url);
-	call->fetch = purple_util_fetch_url_request_len_with_account(sa->account,
-			url, TRUE, NULL, TRUE, NULL, FALSE, 4096*1024,
-			api_cb, call);
+	api_retry(call);
 }
 
 void slack_api_call(SlackAccount *sa, SlackAPICallback callback, gpointer user_data, const char *method, ...)
