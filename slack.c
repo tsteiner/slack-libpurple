@@ -318,6 +318,9 @@ static void init_plugin(G_GNUC_UNUSED PurplePlugin *plugin)
 	prpl_info.protocol_options = g_list_append(prpl_info.protocol_options,
 		purple_account_option_string_new("Prepend attachment lines with this string", "attachment_prefix", "▎ "));
 
+	prpl_info.protocol_options = g_list_append(prpl_info.protocol_options,
+		purple_account_option_int_new("Seconds to delay when ratelimited", "ratelimit_delay", 15));
+
 	slack_cmd_register();
 }
 

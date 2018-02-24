@@ -51,7 +51,7 @@ static void api_cb(G_GNUC_UNUSED PurpleUtilFetchUrlData *fetch, gpointer data, c
 		if (!g_strcmp0(err, "ratelimited")) {
 			/* #27: correct thing to do on 429 status is parse the "Retry-After" header and wait that many seconds,
 			 * but getting access to the headers here requires more work, so we just heuristically make up a number... */
-			purple_timeout_add_seconds(10, api_retry, call);
+			purple_timeout_add_seconds(purple_account_get_int(call->sa->account, "ratelimit_delay", 15), api_retry, call);
 			json_value_free(json);
 			return;
 		}
