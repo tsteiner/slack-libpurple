@@ -48,8 +48,10 @@ static gboolean im_update(SlackAccount *sa, json_value *json, const json_value *
 		if (!user)
 			return FALSE;
 		g_return_val_if_fail(*user->im, FALSE);
+		/* Don't forget im ids because apparently slack might still use them? (#22)
 		g_hash_table_remove(sa->ims, user->im);
 		slack_object_id_clear(user->im);
+		*/
 		if (user->buddy) {
 			slack_blist_uncache(sa, &user->buddy->node);
 			purple_blist_remove_buddy(user->buddy);
