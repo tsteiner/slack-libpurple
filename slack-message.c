@@ -324,7 +324,7 @@ void slack_json_to_html(GString *html, SlackAccount *sa, json_value *message, Pu
 
 	if (!g_strcmp0(subtype, "me_message"))
 		g_string_append(html, "/me ");
-	else if (subtype && !json_get_prop_strptr(message, "username") && flags)
+	else if (subtype && flags)
 		*flags |= PURPLE_MESSAGE_SYSTEM;
 
 	slack_message_to_html(html, sa, json_get_prop_strptr(message, "text"), flags, NULL);
@@ -369,7 +369,6 @@ static void handle_message(SlackAccount *sa, SlackObject *obj, json_value *json,
 		slack_json_to_html(html, sa, message, &flags);
 
 	const char *user_id = json_get_prop_strptr(message, "user");
-	const char *user_name = json_get_prop_strptr(message, "username");
 	SlackUser *user = NULL;
 	if (slack_object_id_is(sa->self->object.id, user_id)) {
 		user = sa->self;
@@ -377,6 +376,10 @@ static void handle_message(SlackAccount *sa, SlackObject *obj, json_value *json,
 		flags |= PURPLE_MESSAGE_REMOTE_SEND;
 #endif
 	}
+	/* for bots providing different display name */
+	const char *username = json_get_prop_strptr(message, "username");
+	if (username)
+		flags &= ~PURPLE_MESSAGE_SYSTEM;
 
 	PurpleConversation *conv = NULL;
 	if (SLACK_IS_CHANNEL(obj)) {
@@ -402,7 +405,7 @@ static void handle_message(SlackAccount *sa, SlackObject *obj, json_value *json,
 				purple_conv_chat_set_topic(chat, user ? user->name : user_id, json_get_prop_strptr(json, "topic"));
 		}
 		
-		serv_got_chat_in(sa->gc, chan->cid, user ? user->name : user_id ?: user_name ?: "", flags, html->str, mt);
+		serv_got_chat_in(sa->gc, chan->cid, user ? user->name : user_id ?: username ?: "", flags, html->str, mt);
 	} else if (SLACK_IS_USER(obj)) {
 		SlackUser *im = (SlackUser*)obj;
 		/* IM */
@@ -415,7 +418,7 @@ static void handle_message(SlackAccount *sa, SlackObject *obj, json_value *json,
 			if (!user)
 				/* is this necessary? shouldn't be anyone else in here */
 				user = (SlackUser*)slack_object_hash_table_lookup(sa->users, user_id);
-			purple_conversation_write(conv, user ? user->name : user_id, html->str, flags, mt);
+			purple_conversation_write(conv, user ? user->name : user_id ?: username, html->str, flags, mt);
 		}
 	}
 
