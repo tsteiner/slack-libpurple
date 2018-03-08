@@ -2,7 +2,12 @@
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
+
+#ifdef _WIN32
+#include <winsock2.h>
+#else
 #include <arpa/inet.h>
+#endif
 
 #include <cipher.h>
 #include <debug.h>
@@ -221,7 +226,7 @@ static size_t ws_read_message(PurpleWebsocket *ws) {
 				frag[0].l += frag[i].l;
 			}
 
-			purple_debug_misc("websocket", "message %x len %zd\n", input[0], frag[0].l);
+			purple_debug_misc("websocket", "message %x len %d\n", input[0], (int) frag[0].l);
 			uint8_t op = input[0] & WS_OP_MASK;
 			switch (op) {
 				case WS_OP_TEXT:

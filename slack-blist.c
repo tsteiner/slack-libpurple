@@ -162,7 +162,7 @@ static void roomlist_cb(SlackAccount *sa, gpointer data, json_value *json, const
 		purple_roomlist_room_add_field(expand->list, room, json_get_prop_strptr(chan, "id"));
 		purple_roomlist_room_add_field(expand->list, room, json_get_prop_strptr(json_get_prop(chan, "topic"), "value"));
 		purple_roomlist_room_add_field(expand->list, room, json_get_prop_strptr(json_get_prop(chan, "purpose"), "value"));
-		purple_roomlist_room_add_field(expand->list, room, GUINT_TO_POINTER(json_get_val(json_get_prop(chan, "num_members"), integer, 0)));
+		purple_roomlist_room_add_field(expand->list, room, GUINT_TO_POINTER((gulong) json_get_val(json_get_prop(chan, "num_members"), integer, 0)));
 		time_t t = slack_parse_time(json_get_prop(chan, "created"));
 		purple_roomlist_room_add_field(expand->list, room, purple_date_format_long(localtime(&t)));
 		SlackUser *creator = (SlackUser*)slack_object_hash_table_lookup(sa->users, json_get_prop_strptr(chan, "creator"));
