@@ -5,8 +5,6 @@
 
 #ifdef _WIN32
 #include <winsock2.h>
-#else
-#include <arpa/inet.h>
 #endif
 
 #include <cipher.h>
@@ -209,7 +207,7 @@ static size_t ws_read_message(PurpleWebsocket *ws) {
 				plen = GUINT64_FROM_BE(GET(uint64_t));
 				break;
 			case 126:
-				plen = ntohs(GET(uint16_t));
+				plen = g_ntohs(GET(uint16_t));
 				break;
 		}
 		frag[fi].l = plen;
@@ -226,7 +224,7 @@ static size_t ws_read_message(PurpleWebsocket *ws) {
 				frag[0].l += frag[i].l;
 			}
 
-			purple_debug_misc("websocket", "message %x len %d\n", input[0], (int) frag[0].l);
+			purple_debug_misc("websocket", "message %x len %lu\n", input[0], (unsigned long) frag[0].l);
 			uint8_t op = input[0] & WS_OP_MASK;
 			switch (op) {
 				case WS_OP_TEXT:
@@ -394,7 +392,7 @@ void purple_websocket_send(PurpleWebsocket *ws, PurpleWebsocketOp op, const guch
 		ADD(uint64_t, GUINT64_TO_BE(len));
 	} else if (len >= 126) {
 		ADD(uint8_t, WS_MASK | 126);
-		ADD(uint16_t, htons(len));
+		ADD(uint16_t, g_htons(len));
 	} else {
 		ADD(uint8_t, WS_MASK | len);
 	}

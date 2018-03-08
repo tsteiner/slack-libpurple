@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include <glib-object.h>
-#include "./glibcompat.h"
+#include "glibcompat.h"
 
 /* object IDs seem to always be of the form "TXXXXXXXX" where T is a type identifier and X are [0-9A-Z] (base32?) */
 #define SLACK_OBJECT_ID_SIZ	12
@@ -49,14 +49,8 @@ G_DECLARE_FINAL_TYPE(SlackObject, slack_object, SLACK, OBJECT, GObject)
 #define slack_object_hash_table_new() \
 	g_hash_table_new_full(slack_object_id_hash, slack_object_id_equal, NULL, g_object_unref)
 
-static inline gboolean slack_object_hash_table_replace(GHashTable *hash_table, SlackObject *obj) {
-#if !GLIB_CHECK_VERSION(2, 40, 0)
-	gboolean exists = g_hash_table_lookup_extended(hash_table, obj->id, NULL, NULL);
+static inline void slack_object_hash_table_replace(GHashTable *hash_table, SlackObject *obj) {
 	g_hash_table_replace(hash_table, obj->id, obj);
-	return exists;
-#else
-	return g_hash_table_replace(hash_table, obj->id, obj);
-#endif
 }
 
 static inline SlackObject *slack_object_hash_table_lookup(GHashTable *hash_table, const char *sid) {

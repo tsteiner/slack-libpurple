@@ -1,5 +1,3 @@
-LIBNAME = libslack.so
-
 C_SRCS = slack.c \
 	 slack-cmd.c \
 	 slack-message.c \
@@ -21,25 +19,20 @@ PURPLE_MOD=purple
 
 ifeq ($(OS),Windows_NT)
 
-LIBNAME = libslack.dll
+LIBNAME=libslack.dll
 PIDGIN_TREE_TOP ?= ../pidgin-2.10.11
 WIN32_DEV_TOP ?= $(PIDGIN_TREE_TOP)/../win32-dev
 WIN32_CC ?= $(WIN32_DEV_TOP)/mingw-4.7.2/bin/gcc
 
-PROGFILES32 = ${ProgramFiles(x86)}
+PROGFILES32=${ProgramFiles(x86)}
 ifndef PROGFILES32
-PROGFILES32 = $(PROGRAMFILES)
+PROGFILES32=$(PROGRAMFILES)
 endif
 
-
-.PHONY: all
-all: $(LIBNAME)
-
 CC = $(WIN32_DEV_TOP)/mingw-4.7.2/bin/gcc
-LD = $(CC)
 
-PLUGIN_DIR_PURPLE:="$(PROGFILES32)/Pidgin/plugins"
-DATA_ROOT_DIR_PURPLE:="$(PROGFILES32)/Pidgin/"
+DATA_ROOT_DIR_PURPLE:="$(PROGFILES32)/Pidgin"
+PLUGIN_DIR_PURPLE:="$(DATA_ROOT_DIR_PURPLE)/plugins"
 CFLAGS = \
     -g \
     -O2 \
@@ -53,8 +46,9 @@ LIBS = -L$(WIN32_DEV_TOP)/glib-2.28.8/lib -L$(PIDGIN_TREE_TOP)/libpurple -lpurpl
 
 else
 
-CC = gcc
-LD = $(CC)
+LIBNAME=libslack.so
+
+CC=gcc
 PLUGIN_DIR_PURPLE:=$(DESTDIR)$(shell pkg-config --variable=plugindir $(PURPLE_MOD))
 DATA_ROOT_DIR_PURPLE:=$(DESTDIR)$(shell pkg-config --variable=datarootdir $(PURPLE_MOD))
 PKGS=$(PURPLE_MOD) glib-2.0 gobject-2.0
@@ -73,6 +67,9 @@ LIBS = $(shell pkg-config --libs $(PKGS))
 
 endif
 
+.PHONY: all
+all: $(LIBNAME)
+
 LDFLAGS = -shared
 
 json.%: json-parser/json.%
@@ -84,7 +81,7 @@ json.%: json-parser/json.%
 	$(CC) -E $(CFLAGS) -o $@ $<
 
 $(LIBNAME): $(C_OBJS)
-	$(LD) $(LDFLAGS) -o $@ $^ $(LIBS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 .PHONY: install install-user
 install: $(LIBNAME)
@@ -109,7 +106,11 @@ uninstall: $(LIBNAME)
 clean:
 	rm -f *.o $(LIBNAME) Makefile.dep
 
+.PHONY: modversion
+modversion:
+	pkg-config --modversion $(PKGS)
+
 Makefile.dep: $(C_SRCS)
-#	pkg-config --modversion $(PKGS)
 	$(CC) -MM $(CFLAGS) $^ > Makefile.dep
+
 include Makefile.dep
