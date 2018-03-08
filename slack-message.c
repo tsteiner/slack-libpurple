@@ -324,7 +324,7 @@ void slack_json_to_html(GString *html, SlackAccount *sa, json_value *message, Pu
 
 	if (!g_strcmp0(subtype, "me_message"))
 		g_string_append(html, "/me ");
-	else if (subtype && flags)
+	else if (subtype && !json_get_prop_strptr(message, "username") && flags)
 		*flags |= PURPLE_MESSAGE_SYSTEM;
 
 	slack_message_to_html(html, sa, json_get_prop_strptr(message, "text"), flags, NULL);
@@ -369,6 +369,7 @@ static void handle_message(SlackAccount *sa, SlackObject *obj, json_value *json,
 		slack_json_to_html(html, sa, message, &flags);
 
 	const char *user_id = json_get_prop_strptr(message, "user");
+	const char *user_name = json_get_prop_strptr(message, "username");
 	SlackUser *user = NULL;
 	if (slack_object_id_is(sa->self->object.id, user_id)) {
 		user = sa->self;
@@ -401,7 +402,7 @@ static void handle_message(SlackAccount *sa, SlackObject *obj, json_value *json,
 				purple_conv_chat_set_topic(chat, user ? user->name : user_id, json_get_prop_strptr(json, "topic"));
 		}
 		
-		serv_got_chat_in(sa->gc, chan->cid, user ? user->name : user_id ?: "", flags, html->str, mt);
+		serv_got_chat_in(sa->gc, chan->cid, user ? user->name : user_id ?: user_name ?: "", flags, html->str, mt);
 	} else if (SLACK_IS_USER(obj)) {
 		SlackUser *im = (SlackUser*)obj;
 		/* IM */
