@@ -1,8 +1,5 @@
 LIBNAME = libslack.so
 
-.PHONY: all
-all: $(LIBNAME)
-
 C_SRCS = slack.c \
 	 slack-cmd.c \
 	 slack-message.c \
@@ -20,10 +17,44 @@ C_SRCS = slack.c \
 # Object file names using 'Substitution Reference'
 C_OBJS = $(C_SRCS:.c=.o)
 
-CC = gcc
+PURPLE_MOD=purple
+
+ifeq ($(OS),Windows_NT)
+
+LIBNAME = libslack.dll
+PIDGIN_TREE_TOP ?= ../pidgin-2.10.11
+WIN32_DEV_TOP ?= $(PIDGIN_TREE_TOP)/../win32-dev
+WIN32_CC ?= $(WIN32_DEV_TOP)/mingw-4.7.2/bin/gcc
+
+PROGFILES32 = ${ProgramFiles(x86)}
+ifndef PROGFILES32
+PROGFILES32 = $(PROGRAMFILES)
+endif
+
+
+.PHONY: all
+all: $(LIBNAME)
+
+CC = $(WIN32_DEV_TOP)/mingw-4.7.2/bin/gcc
 LD = $(CC)
 
-PURPLE_MOD=purple
+PLUGIN_DIR_PURPLE:="$(PROGFILES32)/Pidgin/plugins"
+DATA_ROOT_DIR_PURPLE:="$(PROGFILES32)/Pidgin/"
+CFLAGS = \
+    -g \
+    -O2 \
+    -Wall -Werror \
+    -Wno-error=strict-aliasing \
+    -D_DEFAULT_SOURCE=1 \
+    -std=c99 \
+	-I$(PIDGIN_TREE_TOP)/libpurple \
+	-I$(WIN32_DEV_TOP)/glib-2.28.8/include -I$(WIN32_DEV_TOP)/glib-2.28.8/include/glib-2.0 -I$(WIN32_DEV_TOP)/glib-2.28.8/lib/glib-2.0/include
+LIBS = -L$(WIN32_DEV_TOP)/glib-2.28.8/lib -L$(PIDGIN_TREE_TOP)/libpurple -lpurple -lintl -lglib-2.0 -lgobject-2.0 -g -ggdb -static-libgcc -lz -lws2_32 
+
+else
+
+CC = gcc
+LD = $(CC)
 PLUGIN_DIR_PURPLE:=$(DESTDIR)$(shell pkg-config --variable=plugindir $(PURPLE_MOD))
 DATA_ROOT_DIR_PURPLE:=$(DESTDIR)$(shell pkg-config --variable=datarootdir $(PURPLE_MOD))
 PKGS=$(PURPLE_MOD) glib-2.0 gobject-2.0
@@ -39,6 +70,8 @@ CFLAGS = \
     $(shell pkg-config --cflags $(PKGS))
 
 LIBS = $(shell pkg-config --libs $(PKGS))
+
+endif
 
 LDFLAGS = -shared
 
@@ -77,6 +110,6 @@ clean:
 	rm -f *.o $(LIBNAME) Makefile.dep
 
 Makefile.dep: $(C_SRCS)
-	pkg-config --modversion $(PKGS)
+#	pkg-config --modversion $(PKGS)
 	$(CC) -MM $(CFLAGS) $^ > Makefile.dep
 include Makefile.dep

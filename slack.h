@@ -5,6 +5,8 @@
 
 #include <account.h>
 
+#include "glibcompat.h"
+
 #include "purple-websocket.h"
 
 #define SLACK_PLUGIN_ID "prpl-slack"

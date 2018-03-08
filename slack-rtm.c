@@ -103,9 +103,9 @@ static void rtm_cb(PurpleWebsocket *ws, gpointer data, PurpleWebsocketOp op, con
 	const char *type = json_get_prop_strptr(json, "type");
 
 	if (reply_to) {
-		SlackRTMCall *call = g_hash_table_lookup(sa->rtm_call, GUINT_TO_POINTER(reply_to->u.integer));
+		SlackRTMCall *call = g_hash_table_lookup(sa->rtm_call, GUINT_TO_POINTER((gulong) reply_to->u.integer));
 		if (call) {
-			g_hash_table_steal(sa->rtm_call, GUINT_TO_POINTER(reply_to->u.integer));
+			g_hash_table_steal(sa->rtm_call, GUINT_TO_POINTER((gulong) reply_to->u.integer));
 			if (!json_get_prop_boolean(json, "ok", FALSE)) {
 				json_value *err = json_get_prop(json, "error");
 				if (err->type == json_object)
