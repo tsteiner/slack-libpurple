@@ -37,3 +37,14 @@ void slack_conversations_load(SlackAccount *sa) {
 	g_hash_table_remove_all(sa->ims);
 	CONVERSATIONS_LIST_CALL(sa);
 }
+
+SlackObject *slack_conversation_get_conversation(SlackAccount *sa, PurpleConversation *conv) {
+	switch (conv->type) {
+		case PURPLE_CONV_TYPE_IM:
+			return g_hash_table_lookup(sa->user_names, purple_conversation_get_name(conv));
+		case PURPLE_CONV_TYPE_CHAT:
+			return g_hash_table_lookup(sa->channel_cids, GUINT_TO_POINTER(purple_conv_chat_get_id(PURPLE_CONV_CHAT(conv))));
+		default:
+			return NULL;
+	}
+}

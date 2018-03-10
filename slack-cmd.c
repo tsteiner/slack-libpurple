@@ -3,6 +3,8 @@
 #include "slack-json.h"
 #include "slack-api.h"
 #include "slack-message.h"
+#include "slack-conversation.h"
+#include "slack-cmd.h"
 
 /* really all commands are handled server-side, but OPT_PROTO_SLACK_COMMANDS_NATIVE doesn't quite work right (when the same command is registered for other things), so we defensively register a trivial handler for at least all the builtin commands.
  * copied from https://get.slack.help/hc/en-us/articles/201259356-using-slash-commands */
@@ -64,7 +66,7 @@ static PurpleCmdRet send_cmd(PurpleConversation *conv, const gchar *cmd, gchar *
 	if (!sa)
 		return PURPLE_CMD_RET_FAILED;
 
-	SlackObject *obj = slack_conversation_get_channel(sa, conv);
+	SlackObject *obj = slack_conversation_get_conversation(sa, conv);
 	GString *msg = g_string_sized_new(strlen(cmd)+1);
 	g_string_append_c(msg, '/');
 	g_string_append(msg, cmd);

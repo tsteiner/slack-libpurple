@@ -496,27 +496,18 @@ static void get_history_cb(SlackAccount *sa, gpointer data, json_value *json, co
 	g_object_unref(obj);
 }
 
-void slack_get_history(SlackAccount *sa, SlackObject *obj, const char *since, unsigned count) {
-	if (SLACK_IS_CHANNEL(obj)) {
-		SlackChannel *chan = (SlackChannel*)obj;
+void slack_get_history(SlackAccount *sa, SlackObject *conv, const char *since, unsigned count) {
+	if (SLACK_IS_CHANNEL(conv)) {
+		SlackChannel *chan = (SlackChannel*)conv;
 		if (!chan->cid)
 			slack_chat_open(sa, chan);
 	}
+	const char *id = slack_conversation_id(conv);
+	g_return_if_fail(id);
 
 	char count_buf[6] = "";
 	snprintf(count_buf, 5, "%u", count);
-	slack_api_channel_call(sa, get_history_cb, g_object_ref(obj), obj, "history", "oldest", since ?: "0", "count", count_buf, NULL);
-}
-
-SlackObject *slack_conversation_get_channel(SlackAccount *sa, PurpleConversation *conv) {
-	switch (conv->type) {
-		case PURPLE_CONV_TYPE_IM:
-			return g_hash_table_lookup(sa->user_names, purple_conversation_get_name(conv));
-		case PURPLE_CONV_TYPE_CHAT:
-			return g_hash_table_lookup(sa->channel_cids, GUINT_TO_POINTER(purple_conv_chat_get_id(PURPLE_CONV_CHAT(conv))));
-		default:
-			return NULL;
-	}
+	slack_api_call(sa, get_history_cb, g_object_ref(conv), "conversations.history", "channel", id, "oldest", since ?: "0", "limit", count_buf, NULL);
 }
 
 void slack_mark_conversation(SlackAccount *sa, PurpleConversation *conv) {
@@ -531,7 +522,8 @@ void slack_mark_conversation(SlackAccount *sa, PurpleConversation *conv) {
 	/* we don't need ts anymore */
 	purple_conversation_set_data(conv, "slack:ts", NULL);
 
-	SlackObject *obj = slack_conversation_get_channel(sa, conv);
+	SlackObject *obj = slack_conversation_get_conversation(sa, conv);
+	/* XXX conversations.mark call??? */
 	slack_api_channel_call(sa, NULL, NULL, obj, "mark", "ts", ts, NULL);
 	g_free(ts);
 }

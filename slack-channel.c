@@ -143,8 +143,7 @@ static void join_channel_free(struct join_channel *join) {
 }
 
 static void channels_info_cb(SlackAccount *sa, gpointer data, json_value *json, const char *error) {
-	SlackChannelType type = GPOINTER_TO_INT(data);
-	json = json_get_prop_type(json, type >= SLACK_CHANNEL_GROUP ? "group" : "channel", object);
+	json = json_get_prop_type(json, "channel", object);
 
 	if (!json || error) {
 		purple_debug_error("slack", "Error loading channel info: %s\n", error ?: "missing");
@@ -202,7 +201,7 @@ void slack_chat_open(SlackAccount *sa, SlackChannel *chan) {
 
 	serv_got_joined_chat(sa->gc, chan->cid, chan->object.name);
 
-	slack_api_call(sa, channels_info_cb, GINT_TO_POINTER(chan->type), chan->type >= SLACK_CHANNEL_GROUP ? "groups.info" : "channels.info", "channel", chan->object.id, NULL);
+	slack_api_call(sa, channels_info_cb, NULL, "conversations.info", "channel", chan->object.id, NULL);
 }
 
 static void channels_join_cb(SlackAccount *sa, gpointer data, json_value *json, const char *error) {
@@ -341,7 +340,7 @@ void slack_chat_invite(PurpleConnection *gc, int cid, const char *message, const
 	if (!user)
 		return;
 
-	slack_api_call(sa, NULL, NULL, chan->type >= SLACK_CHANNEL_GROUP ? "groups.invite" : "channels.invite", "channel", chan->object.id, "user", user->object.id, NULL);
+	slack_api_call(sa, NULL, NULL, "conversations.invite", "channel", chan->object.id, "user", user->object.id, NULL);
 }
 
 void slack_set_chat_topic(PurpleConnection *gc, int cid, const char *topic) {
@@ -351,5 +350,5 @@ void slack_set_chat_topic(PurpleConnection *gc, int cid, const char *topic) {
 	if (!chan)
 		return;
 
-	slack_api_call(sa, NULL, NULL, chan->type >= SLACK_CHANNEL_GROUP ? "groups.setTopic" : "channels.setTopic", "channel", chan->object.id, "topic", topic, NULL);
+	slack_api_call(sa, NULL, NULL, "conversations.setTopic", "channel", chan->object.id, "topic", topic, NULL);
 }
