@@ -15,6 +15,7 @@
 #include "slack-user.h"
 #include "slack-im.h"
 #include "slack-channel.h"
+#include "slack-conversation.h"
 #include "slack-blist.h"
 #include "slack-message.h"
 #include "slack-cmd.h"
@@ -146,18 +147,37 @@ static void slack_login(PurpleAccount *account) {
 	purple_connection_set_display_name(gc, account->alias ?: account->username);
 	purple_connection_set_state(gc, PURPLE_CONNECTING);
 
-	/* connect order (SLACK_CONNECT_STEPS):
-		1. slack_rtm_connect
-		2. slack_connect_cb
-		   purple_websocket_connect
-		3. rtm_cb
-		   rtm_msg("hello")
-		4. slack_users_load
-		5. slack_ims_load
-		6. slack_channels_load
-		7. slack_groups_load
-	*/
-	slack_rtm_connect(sa);
+	slack_login_step(sa);
+}
+
+void slack_login_step(SlackAccount *sa) {
+#define MSG(msg) \
+	purple_connection_update_progress(sa->gc, msg, ++sa->login_step, 6)
+	switch (sa->login_step) {
+		case 0:
+			MSG("Requesting RTM");
+			slack_rtm_connect(sa);
+			break;
+		case 1: /* slack_connect_cb */
+			MSG("Connecting to RTM");
+			/* purple_websocket_connect */
+			break;
+		case 2: /* rtm_cb */
+			MSG("RTM Connected");
+			break;
+		case 3: /* rtm_msg("hello") */
+			MSG("Loading Users");
+			slack_users_load(sa);
+			break;
+		case 4:
+			MSG("Loading conversations");
+			slack_conversations_load(sa);
+			break;
+		case 5:
+			slack_presence_sub(sa);
+			purple_connection_set_state(sa->gc, PURPLE_CONNECTED);
+	}
+#undef MSG
 }
 
 static void slack_close(PurpleConnection *gc) {

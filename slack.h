@@ -10,14 +10,13 @@
 
 #define SLACK_PLUGIN_ID "prpl-slack"
 
-#define SLACK_CONNECT_STEPS 8
-
 typedef struct _SlackAccount {
 	PurpleAccount *account;
 	PurpleConnection *gc;
 	char *api_url; /* e.g., "https://slack.com/api" */
 	char *token; /* url encoded */
 
+	short login_step;
 	PurpleWebsocket *rtm;
 	gulong rtm_id;
 	GHashTable *rtm_call; /* unsigned rtm_id -> SlackRTMCall */
@@ -43,6 +42,7 @@ typedef struct _SlackAccount {
 	PurpleRoomlist *roomlist;
 } SlackAccount;
 
+void slack_login_step(SlackAccount *sa);
 GHashTable *slack_chat_info_defaults(PurpleConnection *gc, const char *name);
 
 static inline SlackAccount *get_slack_account(PurpleAccount *account) {

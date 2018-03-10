@@ -6,6 +6,7 @@
 #include "slack-api.h"
 #include "slack-user.h"
 #include "slack-channel.h"
+#include "slack-conversation.h"
 #include "slack-message.h"
 
 gchar *slack_html_to_message(SlackAccount *sa, const char *s, PurpleMessageFlags flags) {
@@ -434,8 +435,7 @@ static void handle_message(SlackAccount *sa, SlackObject *obj, json_value *json,
 void slack_message(SlackAccount *sa, json_value *json) {
 	const char *channel_id = json_get_prop_strptr(json, "channel");
 
-	handle_message(sa, slack_object_hash_table_lookup(sa->channels, channel_id)
-			?: slack_object_hash_table_lookup(sa->ims,      channel_id),
+	handle_message(sa, slack_conversation_lookup_sid(sa, channel_id),
 			json, PURPLE_MESSAGE_RECV);
 }
 

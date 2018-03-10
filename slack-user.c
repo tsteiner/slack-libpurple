@@ -96,11 +96,10 @@ static void users_list_cb(SlackAccount *sa, gpointer data, json_value *json, con
 	if (cursor && *cursor)
 		slack_api_call(sa, users_list_cb, NULL, "users.list", "presence", "false", SLACK_PAGINATE_LIMIT, "cursor", cursor, NULL);
 	else
-		slack_ims_load(sa);
+		slack_login_step(sa);
 }
 
 void slack_users_load(SlackAccount *sa) {
-	purple_connection_update_progress(sa->gc, "Loading Users", 4, SLACK_CONNECT_STEPS);
 	g_hash_table_remove_all(sa->users);
 	slack_api_call(sa, users_list_cb, NULL, "users.list", "presence", "false", SLACK_PAGINATE_LIMIT, NULL);
 }

@@ -46,7 +46,7 @@ static void channel_depart(SlackAccount *sa, SlackChannel *chan) {
 	}
 }
 
-static SlackChannel *channel_update(SlackAccount *sa, json_value *json, SlackChannelType type) {
+SlackChannel *slack_channel_set(SlackAccount *sa, json_value *json, SlackChannelType type) {
 	const char *sid = json_get_strptr(json);
 	if (sid)
 		json = NULL;
@@ -127,54 +127,7 @@ static SlackChannel *channel_update(SlackAccount *sa, json_value *json, SlackCha
 }
 
 void slack_channel_update(SlackAccount *sa, json_value *json, SlackChannelType event) {
-	channel_update(sa, json_get_prop(json, "channel"), event);
-}
-
-static void channels_list_cb(SlackAccount *sa, gpointer data, json_value *json, const char *error) {
-	json_value *chans = json_get_prop_type(json, "channels", array);
-	if (!chans) {
-		purple_connection_error_reason(sa->gc,
-				PURPLE_CONNECTION_ERROR_NETWORK_ERROR, error ?: "Missing channel list");
-		return;
-	}
-
-	for (unsigned i = 0; i < chans->u.array.length; i++)
-		channel_update(sa, chans->u.array.values[i], SLACK_CHANNEL_PUBLIC);
-
-	char *cursor = json_get_prop_strptr(json_get_prop(json, "response_metadata"), "next_cursor");
-	if (cursor && *cursor)
-		slack_api_call(sa, channels_list_cb, NULL, "channels.list", "exclude_archived", "true", "exclude_members", "true", SLACK_PAGINATE_LIMIT, "cursor", cursor, NULL);
-	else
-		slack_groups_load(sa);
-}
-
-static void groups_list_cb(SlackAccount *sa, gpointer data, json_value *json, const char *error) {
-	json_value *chans = json_get_prop_type(json, "groups", array);
-	if (!chans) {
-		purple_connection_error_reason(sa->gc,
-				PURPLE_CONNECTION_ERROR_NETWORK_ERROR, error ?: "Missing group list");
-		return;
-	}
-
-	for (unsigned i = 0; i < chans->u.array.length; i++)
-		channel_update(sa, chans->u.array.values[i], SLACK_CHANNEL_GROUP);
-
-	char *cursor = json_get_prop_strptr(json_get_prop(json, "response_metadata"), "next_cursor");
-	if (cursor && *cursor)
-		slack_api_call(sa, groups_list_cb, NULL, "groups.list", "exclude_archived", "true", SLACK_PAGINATE_LIMIT, "cursor", cursor, NULL);
-	else
-		purple_connection_set_state(sa->gc, PURPLE_CONNECTED);
-}
-
-void slack_channels_load(SlackAccount *sa) {
-	purple_connection_update_progress(sa->gc, "Loading Channels", 6, SLACK_CONNECT_STEPS);
-	g_hash_table_remove_all(sa->channels);
-	slack_api_call(sa, channels_list_cb, NULL, "channels.list", "exclude_archived", "true", "exclude_members", "true", SLACK_PAGINATE_LIMIT, NULL);
-}
-
-void slack_groups_load(SlackAccount *sa) {
-	purple_connection_update_progress(sa->gc, "Loading Groups", 7, SLACK_CONNECT_STEPS);
-	slack_api_call(sa, groups_list_cb, NULL, "groups.list", "exclude_archived", "true", SLACK_PAGINATE_LIMIT, NULL);
+	slack_channel_set(sa, json_get_prop(json, "channel"), event);
 }
 
 struct join_channel {
@@ -198,7 +151,7 @@ static void channels_info_cb(SlackAccount *sa, gpointer data, json_value *json, 
 		return;
 	}
 
-	SlackChannel *chan = channel_update(sa, json, SLACK_CHANNEL_PUBLIC);
+	SlackChannel *chan = slack_channel_set(sa, json, SLACK_CHANNEL_PUBLIC);
 
 	PurpleConvChat *conv = slack_channel_get_conversation(sa, chan);
 	if (!conv)
@@ -256,7 +209,7 @@ static void channels_join_cb(SlackAccount *sa, gpointer data, json_value *json, 
 	struct join_channel *join = data;
 
 	SlackChannel *chan = json
-		? channel_update(sa, json_get_prop(json, "channel"), SLACK_CHANNEL_MEMBER)
+		? slack_channel_set(sa, json_get_prop(json, "channel"), SLACK_CHANNEL_MEMBER)
 		: join->chan;
 
 	if (!chan || error) {

@@ -32,8 +32,7 @@ static inline PurpleChat *channel_buddy(SlackChannel *chan) {
 }
 
 /* Initialization */
-void slack_channels_load(SlackAccount *sa);
-void slack_groups_load(SlackAccount *sa);
+SlackChannel *slack_channel_set(SlackAccount *sa, json_value *json, SlackChannelType type);
 
 /* Open a purple conversation for a channel */
 void slack_chat_open(SlackAccount *sa, SlackChannel *chan);

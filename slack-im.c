@@ -11,7 +11,7 @@
 #include "slack-channel.h"
 #include "slack-im.h"
 
-static void slack_presence_sub(SlackAccount *sa) {
+void slack_presence_sub(SlackAccount *sa) {
 	GString *ids = g_string_new("[");
 	GHashTableIter iter;
 	gpointer id;
@@ -31,7 +31,7 @@ static void slack_presence_sub(SlackAccount *sa) {
 	g_string_free(ids, TRUE);
 }
 
-static gboolean im_update(SlackAccount *sa, json_value *json, const json_value *open_user) {
+gboolean slack_im_set(SlackAccount *sa, json_value *json, const json_value *open_user) {
 	const char *sid = json_get_strptr(json);
 	if (sid)
 		json = NULL;
@@ -99,39 +99,13 @@ static gboolean im_update(SlackAccount *sa, json_value *json, const json_value *
 }
 
 void slack_im_close(SlackAccount *sa, json_value *json) {
-	if (im_update(sa, json_get_prop(json, "channel"), NULL))
+	if (slack_im_set(sa, json_get_prop(json, "channel"), NULL))
 		slack_presence_sub(sa);
 }
 
 void slack_im_open(SlackAccount *sa, json_value *json) {
-	if (im_update(sa, json_get_prop(json, "channel"), json_get_prop(json, "user")))
+	if (slack_im_set(sa, json_get_prop(json, "channel"), json_get_prop(json, "user")))
 		slack_presence_sub(sa);
-}
-
-static void im_list_cb(SlackAccount *sa, gpointer data, json_value *json, const char *error) {
-	json_value *ims = json_get_prop_type(json, "ims", array);
-	if (!ims) {
-		purple_connection_error_reason(sa->gc,
-				PURPLE_CONNECTION_ERROR_NETWORK_ERROR, error ?: "Missing IM channel list");
-		return;
-	}
-
-	for (unsigned i = 0; i < ims->u.array.length; i ++)
-		im_update(sa, ims->u.array.values[i], &json_value_none);
-
-	char *cursor = json_get_prop_strptr(json_get_prop(json, "response_metadata"), "next_cursor");
-	if (cursor && *cursor)
-		slack_api_call(sa, im_list_cb, NULL, "im.list", SLACK_PAGINATE_LIMIT, "cursor", cursor, NULL);
-	else {
-		slack_presence_sub(sa);
-		slack_channels_load(sa);
-	}
-}
-
-void slack_ims_load(SlackAccount *sa) {
-	purple_connection_update_progress(sa->gc, "Loading IM channels", 5, SLACK_CONNECT_STEPS);
-	g_hash_table_remove_all(sa->ims);
-	slack_api_call(sa, im_list_cb, NULL, "im.list", SLACK_PAGINATE_LIMIT, NULL);
 }
 
 struct send_im {
@@ -160,7 +134,7 @@ static void send_im_open_cb(SlackAccount *sa, gpointer data, json_value *json, c
 
 	json = json_get_prop_type(json, "channel", object);
 	if (json)
-		im_update(sa, json, &json_value_none);
+		slack_im_set(sa, json, &json_value_none);
 
 	if (error || !*send->user->im) {
 		purple_conv_present_error(send->user->object.name, sa->account, error ?: "failed to open IM channel");

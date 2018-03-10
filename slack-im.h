@@ -5,7 +5,8 @@
 #include "slack.h"
 
 /* Initialization */
-void slack_ims_load(SlackAccount *sa);
+void slack_presence_sub(SlackAccount *sa);
+gboolean slack_im_set(SlackAccount *sa, json_value *json, const json_value *open_user);
 
 /* RTM event handlers */
 void slack_im_close(SlackAccount *sa, json_value *json);

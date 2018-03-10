@@ -71,7 +71,7 @@ static void rtm_msg(SlackAccount *sa, const char *type, json_value *json) {
 		slack_channel_update(sa, json, SLACK_CHANNEL_DELETED);
 	}
 	else if (!strcmp(type, "hello")) {
-		slack_users_load(sa);
+		slack_login_step(sa);
 	}
 	else {
 		purple_debug_info("slack", "Unhandled RTM type %s\n", type);
@@ -93,7 +93,7 @@ static void rtm_cb(PurpleWebsocket *ws, gpointer data, PurpleWebsocketOp op, con
 			sa->rtm = NULL;
 			break;
 		case PURPLE_WEBSOCKET_OPEN:
-			purple_connection_update_progress(sa->gc, "RTM Connected", 3, SLACK_CONNECT_STEPS);
+			slack_login_step(sa);
 		default:
 			return;
 	}
@@ -164,7 +164,7 @@ static void rtm_connect_cb(SlackAccount *sa, gpointer data, json_value *json, co
 	/* now that we have team info... */
 	slack_blist_init(sa);
 
-	purple_connection_update_progress(sa->gc, "Connecting to RTM", 2, SLACK_CONNECT_STEPS);
+	slack_login_step(sa);
 	purple_debug_info("slack", "RTM URL: %s\n", url);
 	sa->rtm = purple_websocket_connect(sa->account, url, NULL, rtm_cb, sa);
 }
@@ -206,6 +206,5 @@ void slack_rtm_send(SlackAccount *sa, SlackRTMCallback *callback, gpointer user_
 }
 
 void slack_rtm_connect(SlackAccount *sa) {
-	purple_connection_update_progress(sa->gc, "Requesting RTM", 1, SLACK_CONNECT_STEPS);
 	slack_api_call(sa, rtm_connect_cb, NULL, "rtm.connect", "batch_presence_aware", "1", "presence_sub", "true", NULL);
 }
