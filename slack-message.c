@@ -338,6 +338,10 @@ void slack_json_to_html(GString *html, SlackAccount *sa, json_value *message, Pu
 }
 
 static void handle_message(SlackAccount *sa, SlackObject *obj, json_value *json, PurpleMessageFlags flags) {
+	if (!obj) {
+		purple_debug_warning("slack", "Message to unknown channel %s\n", json_get_prop_strptr(json, "channel"));
+		return;
+	}
 	const char *subtype     = json_get_prop_strptr(json, "subtype");
 	json_value *ts          = json_get_prop(json, "ts");
 	time_t mt = slack_parse_time(ts);
