@@ -147,7 +147,7 @@ static void rtm_connect_cb(SlackAccount *sa, gpointer data, json_value *json, co
 		return;
 	}
 
-	purple_connection_set_display_name(sa->gc, sa->self->name);
+	purple_connection_set_display_name(sa->gc, sa->self->object.name);
 
 #define SET_STR(FIELD, JSON, PROP) ({ \
 		g_free(sa->FIELD); \

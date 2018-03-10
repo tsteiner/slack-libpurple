@@ -13,9 +13,7 @@
 G_DEFINE_TYPE(SlackChannel, slack_channel, SLACK_TYPE_OBJECT);
 
 static void slack_channel_finalize(GObject *gobj) {
-	SlackChannel *chan = SLACK_CHANNEL(gobj);
-
-	g_free(chan->name);
+	// SlackChannel *chan = SLACK_CHANNEL(gobj);
 
 	G_OBJECT_CLASS(slack_channel_parent_class)->finalize(gobj);
 }
@@ -41,10 +39,10 @@ static void channel_depart(SlackAccount *sa, SlackChannel *chan) {
 		g_hash_table_remove(sa->channel_cids, GUINT_TO_POINTER(chan->cid));
 		chan->cid = 0;
 	}
-	if (chan->buddy) {
-		slack_blist_uncache(sa, &chan->buddy->node);
-		purple_blist_remove_chat(chan->buddy);
-		chan->buddy = NULL;
+	if (chan->object.buddy) {
+		slack_blist_uncache(sa, chan->object.buddy);
+		purple_blist_remove_chat(channel_buddy(chan));
+		chan->object.buddy = NULL;
 	}
 }
 
@@ -76,8 +74,8 @@ static SlackChannel *channel_update(SlackAccount *sa, json_value *json, SlackCha
 		if (!chan)
 			return NULL;
 		channel_depart(sa, chan);
-		if (chan->name)
-			g_hash_table_remove(sa->channel_names, chan->name);
+		if (chan->object.name)
+			g_hash_table_remove(sa->channel_names, chan->object.name);
 		g_hash_table_remove(sa->channels, id);
 		return NULL;
 	}
@@ -95,30 +93,30 @@ static SlackChannel *channel_update(SlackAccount *sa, json_value *json, SlackCha
 
 	const char *name = json_get_prop_strptr(json, "name");
 
-	if (name && g_strcmp0(chan->name, name)) {
+	if (name && g_strcmp0(chan->object.name, name)) {
 		purple_debug_misc("slack", "channel %s: %s %d\n", sid, name, type);
 		
-		if (chan->name)
-			g_hash_table_remove(sa->channel_names, chan->name);
-		g_free(chan->name);
-		chan->name = g_strdup(name);
-		g_hash_table_insert(sa->channel_names, chan->name, chan);
-		if (chan->buddy)
-			g_hash_table_insert(chan->buddy->components, "name", g_strdup(chan->name));
+		if (chan->object.name)
+			g_hash_table_remove(sa->channel_names, chan->object.name);
+		g_free(chan->object.name);
+		chan->object.name = g_strdup(name);
+		g_hash_table_insert(sa->channel_names, chan->object.name, chan);
+		if (chan->object.buddy)
+			g_hash_table_insert(channel_buddy(chan)->components, "name", g_strdup(chan->object.name));
 	}
 
-	if (!chan->buddy && chan->type >= SLACK_CHANNEL_MEMBER) {
-		chan->buddy = g_hash_table_lookup(sa->buddies, sid);
-		if (chan->buddy && PURPLE_BLIST_NODE_IS_CHAT(PURPLE_BLIST_NODE(chan->buddy))) {
+	if (!chan->object.buddy && chan->type >= SLACK_CHANNEL_MEMBER) {
+		chan->object.buddy = g_hash_table_lookup(sa->buddies, sid);
+		if (chan->object.buddy && PURPLE_BLIST_NODE_IS_CHAT(chan->object.buddy)) {
 			/* While the docs say to use NULL key_destructor, libpurple actually uses g_free when loading buddies, so we recreate components here */
-			if (chan->buddy->components)
-				g_hash_table_destroy(chan->buddy->components);
-			chan->buddy->components = slack_chat_info_defaults(sa->gc, chan->name);
+			if (channel_buddy(chan)->components)
+				g_hash_table_destroy(channel_buddy(chan)->components);
+			channel_buddy(chan)->components = slack_chat_info_defaults(sa->gc, chan->object.name);
 		} else {
-			chan->buddy = purple_chat_new(sa->account, chan->name,
-					slack_chat_info_defaults(sa->gc, chan->name));
-			slack_blist_cache(sa, &chan->buddy->node, sid);
-			purple_blist_add_chat(chan->buddy, sa->blist, NULL);
+			chan->object.buddy = PURPLE_BLIST_NODE(purple_chat_new(sa->account, chan->object.name,
+					slack_chat_info_defaults(sa->gc, chan->object.name)));
+			slack_blist_cache(sa, chan->object.buddy, sid);
+			purple_blist_add_chat(channel_buddy(chan), sa->blist, NULL);
 		}
 	}
 	else if (chan->type < SLACK_CHANNEL_MEMBER) {
@@ -209,7 +207,7 @@ static void channels_info_cb(SlackAccount *sa, gpointer data, json_value *json, 
 	json_value *topic = json_get_prop_type(json, "topic", object);
 	if (topic) {
 		SlackUser *topic_user = (SlackUser*)slack_object_hash_table_lookup(sa->users, json_get_prop_strptr(topic, "creator"));
-		purple_conv_chat_set_topic(conv, topic_user ? topic_user->name : NULL, json_get_prop_strptr(json, "value"));
+		purple_conv_chat_set_topic(conv, topic_user ? topic_user->object.name : NULL, json_get_prop_strptr(json, "value"));
 	}
 
 	const char *creator = json_get_prop_strptr(json, "creator");
@@ -221,7 +219,7 @@ static void channels_info_cb(SlackAccount *sa, gpointer data, json_value *json, 
 			SlackUser *user = (SlackUser*)slack_object_hash_table_lookup(sa->users, json_get_strptr(members->u.array.values[i-1]));
 			if (!user)
 				continue;
-			users = g_list_prepend(users, user->name);
+			users = g_list_prepend(users, user->object.name);
 			PurpleConvChatBuddyFlags flag = PURPLE_CBFLAGS_VOICE;
 			if (slack_object_id_is(user->object.id, creator))
 				flag |= PURPLE_CBFLAGS_FOUNDER;
@@ -249,7 +247,7 @@ void slack_chat_open(SlackAccount *sa, SlackChannel *chan) {
 	chan->cid = ++sa->cid;
 	g_hash_table_insert(sa->channel_cids, GUINT_TO_POINTER(chan->cid), chan);
 
-	serv_got_joined_chat(sa->gc, chan->cid, chan->name);
+	serv_got_joined_chat(sa->gc, chan->cid, chan->object.name);
 
 	slack_api_call(sa, channels_info_cb, GINT_TO_POINTER(chan->type), chan->type >= SLACK_CHANNEL_GROUP ? "groups.info" : "channels.info", "channel", chan->object.id, NULL);
 }
@@ -320,7 +318,7 @@ static void send_chat_cb(SlackAccount *sa, gpointer data, json_value *json, cons
 
 	/* XXX better way to present chat errors? */
 	if (error) {
-		purple_conv_present_error(send->chan->name, sa->account, error);
+		purple_conv_present_error(send->chan->object.name, sa->account, error);
 		send_chat_free(send);
 		return;
 	}
@@ -374,9 +372,9 @@ void slack_member_joined_channel(SlackAccount *sa, json_value *json, gboolean jo
 	if (joined) {
 		PurpleConvChatBuddyFlags flag = PURPLE_CBFLAGS_VOICE;
 		/* TODO we don't know creator here */
-		purple_conv_chat_add_user(conv, user ? user->name : user_id, NULL, flag, TRUE);
+		purple_conv_chat_add_user(conv, user ? user->object.name : user_id, NULL, flag, TRUE);
 	} else
-		purple_conv_chat_remove_user(conv, user ? user->name : user_id, NULL);
+		purple_conv_chat_remove_user(conv, user ? user->object.name : user_id, NULL);
 }
 
 void slack_chat_invite(PurpleConnection *gc, int cid, const char *message, const char *who) {

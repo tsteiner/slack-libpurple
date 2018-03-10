@@ -3,6 +3,7 @@
 
 #include <string.h>
 
+#include <blist.h>
 #include <glib-object.h>
 #include "glibcompat.h"
 
@@ -41,6 +42,9 @@ struct _SlackObject {
 	GObject parent;
 
 	slack_object_id id;
+
+	char *name;
+	PurpleBlistNode *buddy;
 };
 
 #define SLACK_TYPE_OBJECT slack_object_get_type()

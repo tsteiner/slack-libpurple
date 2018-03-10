@@ -87,8 +87,8 @@ PurpleChat *slack_find_blist_chat(PurpleAccount *account, const char *name) {
 	SlackAccount *sa = get_slack_account(account);
 	if (sa && sa->channel_names) {
 		SlackChannel *chan = g_hash_table_lookup(sa->channel_names, name);
-		if (chan && chan->buddy)
-			return chan->buddy;
+		if (chan && chan->object.buddy)
+			return channel_buddy(chan);
 	}
 	return NULL;
 }
@@ -166,7 +166,7 @@ static void roomlist_cb(SlackAccount *sa, gpointer data, json_value *json, const
 		time_t t = slack_parse_time(json_get_prop(chan, "created"));
 		purple_roomlist_room_add_field(expand->list, room, purple_date_format_long(localtime(&t)));
 		SlackUser *creator = (SlackUser*)slack_object_hash_table_lookup(sa->users, json_get_prop_strptr(chan, "creator"));
-		purple_roomlist_room_add_field(expand->list, room, creator ? creator->name : NULL);
+		purple_roomlist_room_add_field(expand->list, room, creator ? creator->object.name : NULL);
 		purple_roomlist_room_add(expand->list, room);
 	}
 

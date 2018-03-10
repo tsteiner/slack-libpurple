@@ -11,7 +11,6 @@ G_DEFINE_TYPE(SlackUser, slack_user, SLACK_TYPE_OBJECT);
 static void slack_user_finalize(GObject *gobj) {
 	SlackUser *user = SLACK_USER(gobj);
 
-	g_free(user->name);
 	g_free(user->status);
 
 	G_OBJECT_CLASS(slack_user_parent_class)->finalize(gobj);
@@ -37,8 +36,8 @@ SlackUser *slack_user_update(SlackAccount *sa, json_value *json) {
 	if (json_get_prop_boolean(json, "deleted", FALSE)) {
 		if (!user)
 			return NULL;
-		if (user->name)
-			g_hash_table_remove(sa->user_names, user->name);
+		if (user->object.name)
+			g_hash_table_remove(sa->user_names, user->object.name);
 		if (*user->im)
 			g_hash_table_remove(sa->ims, user->im);
 		g_hash_table_remove(sa->users, id);
@@ -54,16 +53,16 @@ SlackUser *slack_user_update(SlackAccount *sa, json_value *json) {
 	const char *name = json_get_prop_strptr(json, "name");
 	g_warn_if_fail(name);
 
-	if (g_strcmp0(user->name, name)) {
+	if (g_strcmp0(user->object.name, name)) {
 		purple_debug_misc("slack", "user %s: %s\n", sid, name);
 
-		if (user->name)
-			g_hash_table_remove(sa->user_names, user->name);
-		g_free(user->name);
-		user->name = g_strdup(name);
-		g_hash_table_insert(sa->user_names, user->name, user);
-		if (user->buddy)
-			purple_blist_rename_buddy(user->buddy, user->name);
+		if (user->object.name)
+			g_hash_table_remove(sa->user_names, user->object.name);
+		g_free(user->object.name);
+		user->object.name = g_strdup(name);
+		g_hash_table_insert(sa->user_names, user->object.name, user);
+		if (user->object.buddy)
+			purple_blist_rename_buddy(user_buddy(user), user->object.name);
 	}
 
 	json_value *profile = json_get_prop_type(json, "profile", object);
@@ -111,10 +110,10 @@ static void presence_set(SlackAccount *sa, json_value *json, const char *presenc
 		return;
 	const char *id = json->u.string.ptr;
 	SlackUser *user = (SlackUser*)slack_object_hash_table_lookup(sa->users, id);
-	if (!user || !user->name)
+	if (!user || !user->object.name)
 		return;
-	purple_debug_misc("slack", "setting user %s presence to %s\n", user->name, presence);
-	purple_prpl_got_user_status(sa->account, user->name, presence, NULL);
+	purple_debug_misc("slack", "setting user %s presence to %s\n", user->object.name, presence);
+	purple_prpl_got_user_status(sa->account, user->object.name, presence, NULL);
 }
 
 void slack_presence_change(SlackAccount *sa, json_value *json) {

@@ -18,17 +18,18 @@ typedef enum _SlackChannelType {
 struct _SlackChannel {
 	SlackObject object;
 
-	char *name;
-
 	SlackChannelType type;
-	PurpleChat *buddy;
-	int cid;
+	int cid; /* purple chat id, in channel_cids */
 };
 
 #define SLACK_TYPE_CHANNEL slack_channel_get_type()
 G_DECLARE_FINAL_TYPE(SlackChannel, slack_channel, SLACK, CHANNEL, SlackObject)
 
 PurpleConvChat *slack_channel_get_conversation(SlackAccount *sa, SlackChannel *chan);
+
+static inline PurpleChat *channel_buddy(SlackChannel *chan) {
+	return PURPLE_CHAT(chan->object.buddy);
+}
 
 /* Initialization */
 void slack_channels_load(SlackAccount *sa);

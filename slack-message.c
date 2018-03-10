@@ -116,7 +116,7 @@ void slack_message_to_html(GString *html, SlackAccount *sa, gchar *s, PurpleMess
 				if (!b) {
 					SlackChannel *chan = (SlackChannel*)slack_object_hash_table_lookup(sa->channels, s);
 					if (chan)
-						b = chan->name;
+						b = chan->object.name;
 				}
 				g_string_append(html, b ?: s);
 				break;
@@ -133,7 +133,7 @@ void slack_message_to_html(GString *html, SlackAccount *sa, gchar *s, PurpleMess
 					if (!user)
 						user = (SlackUser*)slack_object_hash_table_lookup(sa->users, s);
 					if (user)
-						b = user->name;
+						b = user->object.name;
 				}
 				g_string_append(html, b ?: s);
 				break;
@@ -402,23 +402,23 @@ static void handle_message(SlackAccount *sa, SlackObject *obj, json_value *json,
 			if (!subtype);
 			else if (!strcmp(subtype, "channel_topic") ||
 					!strcmp(subtype, "group_topic"))
-				purple_conv_chat_set_topic(chat, user ? user->name : user_id, json_get_prop_strptr(json, "topic"));
+				purple_conv_chat_set_topic(chat, user ? user->object.name : user_id, json_get_prop_strptr(json, "topic"));
 		}
 		
-		serv_got_chat_in(sa->gc, chan->cid, user ? user->name : user_id ?: username ?: "", flags, html->str, mt);
+		serv_got_chat_in(sa->gc, chan->cid, user ? user->object.name : user_id ?: username ?: "", flags, html->str, mt);
 	} else if (SLACK_IS_USER(obj)) {
 		SlackUser *im = (SlackUser*)obj;
 		/* IM */
-		conv = purple_find_conversation_with_account(PURPLE_CONV_TYPE_IM, im->name, sa->account);
+		conv = purple_find_conversation_with_account(PURPLE_CONV_TYPE_IM, im->object.name, sa->account);
 		if (slack_object_id_is(im->object.id, user_id))
-			serv_got_im(sa->gc, im->name, html->str, flags, mt);
+			serv_got_im(sa->gc, im->object.name, html->str, flags, mt);
 		else {
 			if (!conv)
-				conv = purple_conversation_new(PURPLE_CONV_TYPE_IM, sa->account, im->name);
+				conv = purple_conversation_new(PURPLE_CONV_TYPE_IM, sa->account, im->object.name);
 			if (!user)
 				/* is this necessary? shouldn't be anyone else in here */
 				user = (SlackUser*)slack_object_hash_table_lookup(sa->users, user_id);
-			purple_conversation_write(conv, user ? user->name : user_id ?: username, html->str, flags, mt);
+			purple_conversation_write(conv, user ? user->object.name : user_id ?: username, html->str, flags, mt);
 		}
 	}
 
@@ -447,7 +447,7 @@ void slack_user_typing(SlackAccount *sa, json_value *json) {
 	SlackChannel *chan;
 	if (user && slack_object_id_is(user->im, channel_id)) {
 		/* IM */
-		serv_got_typing(sa->gc, user->name, 3, PURPLE_TYPING);
+		serv_got_typing(sa->gc, user->object.name, 3, PURPLE_TYPING);
 	} else if ((chan = (SlackChannel*)slack_object_hash_table_lookup(sa->channels, channel_id))) {
 		/* Channel */
 		/* TODO: purple_conv_chat_user_set_flags (though nothing seems to use this) */

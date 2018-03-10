@@ -11,7 +11,15 @@ gboolean slack_object_id_equal(gconstpointer a, gconstpointer b) {
 
 G_DEFINE_ABSTRACT_TYPE(SlackObject, slack_object, G_TYPE_OBJECT);
 
+static void slack_object_finalize(GObject *gobj) {
+	SlackObject *obj = SLACK_OBJECT(gobj);
+
+	g_free(obj->name);
+}
+
 static void slack_object_class_init(SlackObjectClass *klass) {
+	GObjectClass *gobj = G_OBJECT_CLASS(klass);
+	gobj->finalize = slack_object_finalize;
 }
 
 static void slack_object_init(SlackObject *self) {

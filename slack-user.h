@@ -9,17 +9,18 @@
 struct _SlackUser {
 	SlackObject object;
 
-	char *name;
+	char *status;
 
 	/* when there is an open IM channel: */
-	slack_object_id im;
-	PurpleBuddy *buddy;
-
-	char *status;
+	slack_object_id im; /* in ims */
 };
 
 #define SLACK_TYPE_USER slack_user_get_type()
 G_DECLARE_FINAL_TYPE(SlackUser, slack_user, SLACK, USER, SlackObject)
+
+static inline PurpleBuddy *user_buddy(SlackUser *user) {
+	return PURPLE_BUDDY(user->object.buddy);
+}
 
 /* Initialization */
 void slack_users_load(SlackAccount *sa);

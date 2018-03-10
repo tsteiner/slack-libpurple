@@ -52,10 +52,10 @@ static gboolean im_update(SlackAccount *sa, json_value *json, const json_value *
 		g_hash_table_remove(sa->ims, user->im);
 		slack_object_id_clear(user->im);
 		*/
-		if (user->buddy) {
-			slack_blist_uncache(sa, &user->buddy->node);
-			purple_blist_remove_buddy(user->buddy);
-			user->buddy = NULL;
+		if (user->object.buddy) {
+			slack_blist_uncache(sa, user->object.buddy);
+			purple_blist_remove_buddy(user_buddy(user));
+			user->object.buddy = NULL;
 		}
 		return TRUE;
 	}
@@ -79,17 +79,17 @@ static gboolean im_update(SlackAccount *sa, json_value *json, const json_value *
 	} else
 		g_warn_if_fail(slack_object_id_is(user->object.id, user_id));
 
-	if (!user->buddy) {
-		user->buddy = g_hash_table_lookup(sa->buddies, sid);
-		if (user->buddy && PURPLE_BLIST_NODE_IS_BUDDY(PURPLE_BLIST_NODE(user->buddy))) {
-			if (user->name && strcmp(user->name, purple_buddy_get_name(user->buddy))) {
-				purple_blist_rename_buddy(user->buddy, user->name);
+	if (!user->object.buddy) {
+		user->object.buddy = g_hash_table_lookup(sa->buddies, sid);
+		if (user->object.buddy && PURPLE_BLIST_NODE_IS_BUDDY(user->object.buddy)) {
+			if (user->object.name && strcmp(user->object.name, purple_buddy_get_name(user_buddy(user)))) {
+				purple_blist_rename_buddy(user_buddy(user), user->object.name);
 				changed = TRUE;
 			}
 		} else {
-			user->buddy = purple_buddy_new(sa->account, user->name, NULL);
-			slack_blist_cache(sa, &user->buddy->node, sid);
-			purple_blist_add_buddy(user->buddy, NULL, sa->blist, NULL);
+			user->object.buddy = PURPLE_BLIST_NODE(purple_buddy_new(sa->account, user->object.name, NULL));
+			slack_blist_cache(sa, user->object.buddy, sid);
+			purple_blist_add_buddy(user_buddy(user), NULL, sa->blist, NULL);
 			changed = TRUE;
 		}
 	}
@@ -150,7 +150,7 @@ static void send_im_cb(SlackAccount *sa, gpointer data, json_value *json, const 
 	struct send_im *send = data;
 
 	if (error)
-		purple_conv_present_error(send->user->name, sa->account, error);
+		purple_conv_present_error(send->user->object.name, sa->account, error);
 
 	send_im_free(send);
 }
@@ -163,7 +163,7 @@ static void send_im_open_cb(SlackAccount *sa, gpointer data, json_value *json, c
 		im_update(sa, json, &json_value_none);
 
 	if (error || !*send->user->im) {
-		purple_conv_present_error(send->user->name, sa->account, error ?: "failed to open IM channel");
+		purple_conv_present_error(send->user->object.name, sa->account, error ?: "failed to open IM channel");
 		send_im_free(send);
 		return;
 	}
