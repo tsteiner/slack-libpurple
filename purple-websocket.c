@@ -202,12 +202,15 @@ static size_t ws_read_message(PurpleWebsocket *ws) {
 			return 0;
 		}
 		uint64_t plen = mlen & ~WS_MASK;
+		uint16_t tlen;
 		switch (plen) {
 			case 127:
-				plen = GUINT64_FROM_BE(GET(uint64_t));
+				plen = GET(uint16_t);
+				plen = GUINT64_FROM_BE(plen);
 				break;
 			case 126:
-				plen = g_ntohs(GET(uint16_t));
+				tlen = GET(uint16_t);
+				plen = GUINT16_FROM_BE(tlen);
 				break;
 		}
 		frag[fi].l = plen;
@@ -392,7 +395,7 @@ void purple_websocket_send(PurpleWebsocket *ws, PurpleWebsocketOp op, const guch
 		ADD(uint64_t, GUINT64_TO_BE(len));
 	} else if (len >= 126) {
 		ADD(uint8_t, WS_MASK | 126);
-		ADD(uint16_t, g_htons(len));
+		ADD(uint16_t, GUINT16_TO_BE(len));
 	} else {
 		ADD(uint8_t, WS_MASK | len);
 	}
