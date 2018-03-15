@@ -68,11 +68,10 @@ SlackUser *slack_user_update(SlackAccount *sa, json_value *json) {
 	json_value *profile = json_get_prop_type(json, "profile", object);
 	if (profile) {
 		g_free(user->status);
-		user->status = g_strdup(json_get_prop_strptr(profile, "status_text") ?: json_get_prop_strptr(profile, "current_status"));
-		if(strlen(user->status) == 0) {
-			g_free(user->status);
-			user->status = NULL;
-		}
+		user->status = NULL;
+		const char *status = json_get_prop_strptr(profile, "status_text") ?: json_get_prop_strptr(profile, "current_status");
+		if (status && *status)
+			user->status = g_strdup(status);
 
 		if (user == sa->self)
 			purple_account_set_user_info(sa->account, sa->self->status);
@@ -139,7 +138,7 @@ char *slack_status_text(PurpleBuddy *buddy) {
 	SlackObject *obj = slack_blist_node_get_obj(PURPLE_BLIST_NODE(buddy), &sa);
 	g_return_val_if_fail(SLACK_IS_USER(obj), NULL);
 	SlackUser *user = (SlackUser*)obj;
-	return user && user->status ? g_strdup(user->status) : NULL;
+	return user ? g_strdup(user->status) : NULL;
 }
 
 static void users_info_cb(SlackAccount *sa, gpointer data, json_value *json, const char *error) {
