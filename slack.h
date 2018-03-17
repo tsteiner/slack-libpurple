@@ -18,7 +18,7 @@ typedef struct _SlackAccount {
 
 	short login_step;
 	PurpleWebsocket *rtm;
-	gulong rtm_id;
+	guint rtm_id;
 	GHashTable *rtm_call; /* unsigned rtm_id -> SlackRTMCall */
 
 	struct _SlackTeam {
