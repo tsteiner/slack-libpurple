@@ -7,8 +7,11 @@
 
 #include "glibcompat.h"
 #include "purple-websocket.h"
+#include "slack-object.h"
 
 #define SLACK_PLUGIN_ID "prpl-slack"
+
+#define MARK_LIST_END ((SlackObject *)1)
 
 typedef struct _SlackAccount {
 	PurpleAccount *account;
@@ -40,6 +43,9 @@ typedef struct _SlackAccount {
 	PurpleGroup *blist; /* default group for ims/channels */
 	GHashTable *buddies; /* char *slack_id -> PurpleBListNode */
 	PurpleRoomlist *roomlist;
+
+	guint mark_timer;
+	SlackObject *mark_list;
 } SlackAccount;
 
 void slack_login_step(SlackAccount *sa);

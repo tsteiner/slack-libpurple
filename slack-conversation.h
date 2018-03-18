@@ -32,5 +32,6 @@ static inline SlackObject *slack_conversation_lookup_sid(SlackAccount *sa, const
 void slack_conversations_load(SlackAccount *sa);
 
 SlackObject *slack_conversation_get_conversation(SlackAccount *sa, PurpleConversation *conv);
+void slack_mark_conversation(SlackAccount *sa, PurpleConversation *conv);
 
 #endif // _PURPLE_SLACK_CONVERSATION_H

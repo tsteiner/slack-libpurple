@@ -95,13 +95,6 @@ static void slack_conversation_updated(PurpleConversation *conv, PurpleConvUpdat
 	slack_mark_conversation(sa, conv);
 }
 
-static void slack_conversation_deleted(PurpleConversation *conv, void *data) {
-	SlackAccount *sa = get_slack_account(conv->account);
-	if (!sa)
-		return;
-	g_free(purple_conversation_get_data(conv, "slack:ts"));
-}
-
 static void slack_login(PurpleAccount *account) {
 	PurpleConnection *gc = purple_account_get_connection(account);
 
@@ -110,8 +103,6 @@ static void slack_login(PurpleAccount *account) {
 		signals_connected = TRUE;
 		purple_signal_connect(purple_conversations_get_handle(), "conversation-updated",
 				gc->prpl, PURPLE_CALLBACK(slack_conversation_updated), NULL);
-		purple_signal_connect(purple_conversations_get_handle(), "deleting-conversation",
-				gc->prpl, PURPLE_CALLBACK(slack_conversation_deleted), NULL);
 	}
 
 	const gchar *token = purple_account_get_string(account, "api_token", NULL);
@@ -143,6 +134,8 @@ static void slack_login(PurpleAccount *account) {
 	sa->channel_cids = g_hash_table_new_full(g_direct_hash,    g_direct_equal,        NULL, NULL);
 
 	sa->buddies = g_hash_table_new_full(/* slack_object_id_hash, slack_object_id_equal, */ g_str_hash, g_str_equal, NULL, NULL);
+
+	sa->mark_list = MARK_LIST_END;
 
 	purple_connection_set_display_name(gc, account->alias ?: account->username);
 	purple_connection_set_state(gc, PURPLE_CONNECTING);
@@ -185,6 +178,12 @@ static void slack_close(PurpleConnection *gc) {
 
 	if (!sa)
 		return;
+
+	if (sa->mark_timer) {
+		/* really should send final marks if we can... */
+		purple_timeout_remove(sa->mark_timer);
+		sa->mark_timer = 0;
+	}
 
 	if (sa->rtm)
 		purple_websocket_abort(sa->rtm);

@@ -33,4 +33,10 @@ GString *append_json_string(GString *str, const char *s);
 
 time_t slack_parse_time(json_value *val);
 
+static inline int slack_ts_cmp(const char *a, const char *b) {
+	/* at least for the next few hundred years, these should be fixed length, so just treat them as such */
+	return g_strcmp0(a, b);
+}
+
+
 #endif

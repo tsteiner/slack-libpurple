@@ -430,9 +430,10 @@ static void handle_message(SlackAccount *sa, SlackObject *obj, json_value *json,
 	g_string_free(html, TRUE);
 
 	/* update most recent ts for later marking */
-	if (conv && json_get_strptr(ts)) {
-		g_free(purple_conversation_get_data(conv, "slack:ts"));
-		purple_conversation_set_data(conv, "slack:ts", g_strdup(json_get_strptr(ts)));
+	const char *tss = json_get_strptr(ts);
+	if (slack_ts_cmp(tss, obj->last_mesg) > 0) {
+		g_free(obj->last_mesg);
+		obj->last_mesg = g_strdup(tss);
 	}
 }
 
@@ -512,22 +513,4 @@ void slack_get_history(SlackAccount *sa, SlackObject *conv, const char *since, u
 	char count_buf[6] = "";
 	snprintf(count_buf, 5, "%u", count);
 	slack_api_call(sa, get_history_cb, g_object_ref(conv), "conversations.history", "channel", id, "oldest", since ?: "0", "limit", count_buf, NULL);
-}
-
-void slack_mark_conversation(SlackAccount *sa, PurpleConversation *conv) {
-	int c = GPOINTER_TO_INT(purple_conversation_get_data(conv, "unseen-count"));
-	if (c != 0)
-		/* we could update read count to farther back, but best to only move it forward to latest */
-		return;
-
-	char *ts = purple_conversation_get_data(conv, "slack:ts");
-	if (!ts)
-		return;
-	/* we don't need ts anymore */
-	purple_conversation_set_data(conv, "slack:ts", NULL);
-
-	SlackObject *obj = slack_conversation_get_conversation(sa, conv);
-	/* XXX conversations.mark call??? */
-	slack_api_channel_call(sa, NULL, NULL, obj, "mark", "ts", ts, NULL);
-	g_free(ts);
 }

@@ -48,3 +48,52 @@ SlackObject *slack_conversation_get_conversation(SlackAccount *sa, PurpleConvers
 			return NULL;
 	}
 }
+
+static gboolean mark_conversation_timer(gpointer data) {
+	SlackAccount *sa = data;
+	sa->mark_timer = 0; /* always return FALSE */
+
+	/* we just send them all at once -- maybe would be better to chain? */
+	SlackObject *next = sa->mark_list;
+	sa->mark_list = MARK_LIST_END;
+	while (next != MARK_LIST_END) {
+		SlackObject *obj = next;
+		next = obj->mark_next;
+		obj->mark_next = NULL;
+		g_free(obj->last_mark);
+		obj->last_mark = g_strdup(obj->last_read);
+		/* XXX conversations.mark call??? */
+		slack_api_channel_call(sa, NULL, NULL, obj, "mark", "ts", obj->last_mark, NULL);
+	}
+
+	return FALSE;
+}
+
+void slack_mark_conversation(SlackAccount *sa, PurpleConversation *conv) {
+	SlackObject *obj = slack_conversation_get_conversation(sa, conv);
+	if (!obj)
+		return;
+
+	int c = GPOINTER_TO_INT(purple_conversation_get_data(conv, "unseen-count"));
+	if (c != 0)
+		/* we could update read count to farther back, but best to only move it forward to latest */
+		return;
+
+	if (slack_ts_cmp(obj->last_mesg, obj->last_mark) <= 0)
+		return; /* already marked newer */
+	g_free(obj->last_read);
+	obj->last_read = g_strdup(obj->last_mesg);
+
+	if (obj->mark_next)
+		return; /* already on list */
+
+	/* add to list */
+	obj->mark_next = sa->mark_list;
+	sa->mark_list = obj;
+
+	if (sa->mark_timer)
+		return; /* already running */
+
+	/* start */
+	sa->mark_timer = purple_timeout_add_seconds(5, mark_conversation_timer, sa);
+}

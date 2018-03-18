@@ -45,6 +45,9 @@ struct _SlackObject {
 
 	char *name;
 	PurpleBlistNode *buddy;
+
+	char *last_mesg, *last_read, *last_mark; /* ts marking */
+	struct _SlackObject *mark_next; /* on mark_list if non-null */
 };
 
 #define SLACK_TYPE_OBJECT slack_object_get_type()
