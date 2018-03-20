@@ -67,8 +67,6 @@ static inline guchar *buffer_incr(struct buffer *b, size_t n) {
 	return &b->buf[l];
 }
 
-#define BUFFER_ADD(B, T, V) (*(T*)buffer_incr((B), sizeof(T)) = (V))
-
 void purple_websocket_abort(PurpleWebsocket *ws) {
 	if (ws->ssl_connection != NULL)
 		purple_ssl_close(ws->ssl_connection);
@@ -187,16 +185,17 @@ static size_t ws_read_message(PurpleWebsocket *ws) {
 		off += N; \
 		_p; \
 	})
-#define GET(T) (*(T*)GETN(sizeof(T)))
+#define GETB(T) (*(uint8_t*)GETN(1))
+#define GET(V) memcpy(&(V), GETN(sizeof(V)), sizeof(V))
 
 		if (len-off < 2)
 			return off+2;
-		uint8_t header = GET(uint8_t);
+		uint8_t header = GETB(uint8_t);
 		if (header & ~(WS_OP_MASK|WS_FIN)) {
 			ws_error(ws, "Unsupported RSV flag");
 			return 0;
 		}
-		uint8_t mlen = GET(uint8_t);
+		uint8_t mlen = GETB(uint8_t);
 		if (mlen & WS_MASK) {
 			ws_error(ws, "Masked frame");
 			return 0;
@@ -205,11 +204,11 @@ static size_t ws_read_message(PurpleWebsocket *ws) {
 		uint16_t tlen;
 		switch (plen) {
 			case 127:
-				plen = GET(uint16_t);
+				GET(plen);
 				plen = GUINT64_FROM_BE(plen);
 				break;
 			case 126:
-				tlen = GET(uint16_t);
+				GET(tlen);
 				plen = GUINT16_FROM_BE(tlen);
 				break;
 		}
@@ -217,6 +216,7 @@ static size_t ws_read_message(PurpleWebsocket *ws) {
 		frag[fi].p = GETN(plen);
 	
 #undef GET
+#undef GETB
 #undef GETN
 
 		if (header & WS_FIN) {
@@ -387,28 +387,35 @@ void purple_websocket_send(PurpleWebsocket *ws, PurpleWebsocketOp op, const guch
 	g_return_if_fail(!(op & ~WS_OP_MASK));
 	gboolean buf = ws->output.len;
 
-#define ADD(T, V) BUFFER_ADD(&ws->output, T, V)
+#define ADDB(V) (*(uint8_t*)buffer_incr(&ws->output, 1) = (V))
+#define ADD(T, V) ({ \
+		T _v = (V); \
+		memcpy(buffer_incr(&ws->output, sizeof(T)), &_v, sizeof(T)); \
+	})
 
-	ADD(uint8_t, WS_FIN | op);
+	ADDB(WS_FIN | op);
 	if (len > UINT16_MAX) {
-		ADD(uint8_t, WS_MASK | 127);
+		ADDB(WS_MASK | 127);
 		ADD(uint64_t, GUINT64_TO_BE(len));
 	} else if (len >= 126) {
-		ADD(uint8_t, WS_MASK | 126);
+		ADDB(WS_MASK | 126);
 		ADD(uint16_t, GUINT16_TO_BE(len));
 	} else {
-		ADD(uint8_t, WS_MASK | len);
+		ADDB(WS_MASK | len);
 	}
 
 	uint32_t mask = g_random_int();
 	ADD(uint32_t, mask);
 
 #undef ADD
+#undef ADDB
 
 	guchar *p = buffer_incr(&ws->output, len);
 	size_t i;
-	for (i = 0; i+3 < len; i+=4)
-		*(uint32_t*)&p[i] = *(uint32_t*)&msg[i] ^ mask;
+	for (i = 0; i+3 < len; i+=4) {
+		uint32_t m = *(uint32_t*)&msg[i] ^ mask;
+		memcpy(&p[i], &m, 4);
+	}
 	for (; i < len; i++)
 		p[i] = msg[i] ^ ((uint8_t*)&mask)[i&3];
 
