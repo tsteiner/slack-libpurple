@@ -197,6 +197,8 @@ static void users_info_cb(SlackAccount *sa, gpointer data, json_value *json, con
 			purple_notify_user_info_add_pair_plaintext(info, "skype", s);
 		if ((s = json_get_prop_strptr(prof, "phone")))
 			purple_notify_user_info_add_pair_plaintext(info, "phone", s);
+		if ((s = json_get_prop_strptr(prof, "title")))
+			purple_notify_user_info_add_pair_plaintext(info, "title", s);
 	}
 
 	purple_notify_userinfo(sa->gc, who, info, NULL, NULL);
