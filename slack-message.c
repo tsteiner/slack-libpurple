@@ -328,7 +328,11 @@ void slack_json_to_html(GString *html, SlackAccount *sa, json_value *message, Pu
 	else if (subtype && flags)
 		*flags |= PURPLE_MESSAGE_SYSTEM;
 
-	slack_message_to_html(html, sa, json_get_prop_strptr(message, "text"), flags, NULL);
+	char *text = json_get_prop_strptr(message, "text");
+	if(text) {
+		slack_message_to_html(html, sa, text, flags, NULL);
+	}
+
 
 	// If there are attachements, show them.
 	json_value *attachments = json_get_prop_type(message, "attachments", array);
