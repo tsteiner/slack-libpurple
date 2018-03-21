@@ -73,7 +73,8 @@ gchar *slack_html_to_message(SlackAccount *sa, const char *s, PurpleMessageFlags
 }
 
 void slack_message_to_html(GString *html, SlackAccount *sa, gchar *s, PurpleMessageFlags *flags, gchar *prepend_newline_str) {
-	g_return_if_fail(s);
+	if (!s)
+		return;
 
 	if (flags)
 		*flags |= PURPLE_MESSAGE_NO_LINKIFY;
@@ -372,6 +373,13 @@ static void handle_message(SlackAccount *sa, SlackObject *obj, json_value *json,
 	}
 	else
 		slack_json_to_html(html, sa, message, &flags);
+
+	if (!html->len) {
+		/* if after all of that we still have no message, just dump it */
+		g_string_free(html, TRUE);
+		purple_debug_info("slack", "Ignoring unparsed message");
+		return;
+	}
 
 	const char *user_id = json_get_prop_strptr(message, "user");
 	SlackUser *user = NULL;
