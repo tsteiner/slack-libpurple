@@ -377,7 +377,7 @@ static void handle_message(SlackAccount *sa, SlackObject *obj, json_value *json,
 	if (!html->len) {
 		/* if after all of that we still have no message, just dump it */
 		g_string_free(html, TRUE);
-		purple_debug_info("slack", "Ignoring unparsed message");
+		purple_debug_info("slack", "Ignoring unparsed message\n");
 		return;
 	}
 
