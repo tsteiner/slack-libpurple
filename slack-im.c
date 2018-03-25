@@ -94,6 +94,8 @@ gboolean slack_im_set(SlackAccount *sa, json_value *json, const json_value *open
 		}
 	}
 
+	slack_update_avatar(sa, user);
+
 	purple_debug_misc("slack", "im %s: %s\n", user->im, user->object.id);
 	return changed;
 }

@@ -12,6 +12,8 @@ static void slack_user_finalize(GObject *gobj) {
 	SlackUser *user = SLACK_USER(gobj);
 
 	g_free(user->status);
+	g_free(user->avatar_hash);
+	g_free(user->avatar_url);
 
 	G_OBJECT_CLASS(slack_user_parent_class)->finalize(gobj);
 }
@@ -75,6 +77,16 @@ SlackUser *slack_user_update(SlackAccount *sa, json_value *json) {
 
 		if (user == sa->self)
 			purple_account_set_user_info(sa->account, sa->self->status);
+
+		const char *avatar_hash = json_get_prop_strptr(profile, "avatar_hash");
+		const char *avatar_url = json_get_prop_strptr(profile, "image_192");
+		if(avatar_hash && avatar_url) {
+			user->avatar_hash = g_strdup(avatar_hash);
+			user->avatar_url = g_strdup(avatar_url);
+			if(user->object.buddy) {
+				slack_update_avatar(sa, user);
+			}
+		}
 	}
 
 	return user;
@@ -218,4 +230,33 @@ void slack_get_info(PurpleConnection *gc, const char *who) {
 		users_info_cb(sa, g_strdup(who), NULL, NULL);
 	else
 		slack_api_call(sa, users_info_cb, g_strdup(who), "users.info", "user", user->object.id, NULL);
+}
+
+static void avatar_cb(G_GNUC_UNUSED PurpleUtilFetchUrlData *fetch, gpointer data, const gchar *buf, gsize len, const gchar *error) {
+	if(error) {
+		purple_debug_misc("slack", "avatar download failed with '%s'\n", error);
+		return;
+	}
+	SlackUser *user = data;
+	PurpleAccount *gc = PURPLE_BUDDY(user->object.buddy)->account;
+	purple_debug_misc("slack", "avatar download of %lu bytes for %s\n", len, user->avatar_hash);
+
+	gpointer icon_data;
+	icon_data = g_memdup(buf, len);
+
+	purple_buddy_icons_set_for_user(gc, user->object.name, icon_data, len, user->avatar_hash);
+}
+
+
+void slack_update_avatar(SlackAccount *sa, SlackUser *user) {
+	if(user->object.buddy && user->avatar_hash && user->avatar_url) {
+		const char *checksum = purple_buddy_icons_get_checksum_for_user(user_buddy(user));
+		if(checksum && strcmp(checksum, user->avatar_hash) == 0) {
+			purple_debug_misc("slack", "avatar checksum for %s is the same, skipping\n", user->object.name);
+			return;
+		}
+
+		purple_debug_misc("slack", "new avatar for %s, continuing with download.\n", user->object.name);
+		purple_util_fetch_url(user->avatar_url, TRUE, NULL, TRUE, avatar_cb, user);
+	}
 }

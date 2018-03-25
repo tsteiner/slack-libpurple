@@ -10,6 +10,8 @@ struct _SlackUser {
 	SlackObject object;
 
 	char *status;
+	char *avatar_hash;
+	char *avatar_url;
 
 	/* when there is an open IM channel: */
 	slack_object_id im; /* in ims */
@@ -35,5 +37,7 @@ void slack_presence_change(SlackAccount *sa, json_value *json);
 void slack_set_info(PurpleConnection *gc, const char *info);
 char *slack_status_text(PurpleBuddy *buddy);
 void slack_get_info(PurpleConnection *gc, const char *who);
+
+void slack_update_avatar(SlackAccount *sa, SlackUser *user);
 
 #endif // _PURPLE_SLACK_USER_H
