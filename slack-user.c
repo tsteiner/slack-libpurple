@@ -81,11 +81,11 @@ SlackUser *slack_user_update(SlackAccount *sa, json_value *json) {
 		const char *avatar_hash = json_get_prop_strptr(profile, "avatar_hash");
 		const char *avatar_url = json_get_prop_strptr(profile, "image_192");
 		if(avatar_hash && avatar_url) {
+			g_free(user->avatar_hash);
+			g_free(user->avatar_url);
 			user->avatar_hash = g_strdup(avatar_hash);
 			user->avatar_url = g_strdup(avatar_url);
-			if(user->object.buddy) {
-				slack_update_avatar(sa, user);
-			}
+			slack_update_avatar(sa, user);
 		}
 	}
 
@@ -233,18 +233,19 @@ void slack_get_info(PurpleConnection *gc, const char *who) {
 }
 
 static void avatar_cb(G_GNUC_UNUSED PurpleUtilFetchUrlData *fetch, gpointer data, const gchar *buf, gsize len, const gchar *error) {
+	SlackUser *user = data;
 	if(error) {
 		purple_debug_misc("slack", "avatar download failed with '%s'\n", error);
-		return;
+	} else {
+		PurpleAccount *gc = PURPLE_BUDDY(user->object.buddy)->account;
+		purple_debug_misc("slack", "avatar download of %lu bytes for %s\n", len, user->avatar_hash);
+
+		gpointer icon_data;
+		icon_data = g_memdup(buf, len);
+
+		purple_buddy_icons_set_for_user(gc, user->object.name, icon_data, len, user->avatar_hash);
 	}
-	SlackUser *user = data;
-	PurpleAccount *gc = PURPLE_BUDDY(user->object.buddy)->account;
-	purple_debug_misc("slack", "avatar download of %lu bytes for %s\n", len, user->avatar_hash);
-
-	gpointer icon_data;
-	icon_data = g_memdup(buf, len);
-
-	purple_buddy_icons_set_for_user(gc, user->object.name, icon_data, len, user->avatar_hash);
+	g_object_unref(user);
 }
 
 
@@ -257,6 +258,8 @@ void slack_update_avatar(SlackAccount *sa, SlackUser *user) {
 		}
 
 		purple_debug_misc("slack", "new avatar for %s, continuing with download.\n", user->object.name);
+		// increase user ref-count to be decreased in avatar_cb
+		g_object_ref(user);
 		purple_util_fetch_url(user->avatar_url, TRUE, NULL, TRUE, avatar_cb, user);
 	}
 }
