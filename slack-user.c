@@ -259,7 +259,9 @@ static void avatar_cb(G_GNUC_UNUSED PurpleUtilFetchUrlData *fetch, gpointer data
 }
 
 void slack_update_avatar(SlackAccount *sa, SlackUser *user) {
-	if(user->object.buddy && user->avatar_hash && user->avatar_url) {
+	if(purple_account_get_bool(sa->account, "enable_avatar_download", FALSE) &&
+			user->object.buddy && user->avatar_hash && user->avatar_url) {
+
 		const char *checksum = purple_buddy_icons_get_checksum_for_user(user_buddy(user));
 		if(checksum && strcmp(checksum, user->avatar_hash) == 0) {
 			purple_debug_misc("slack", "avatar checksum for %s is the same, skipping\n", user->object.name);
