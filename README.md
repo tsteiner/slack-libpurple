@@ -13,7 +13,9 @@ Here's how slack concepts are mapped to purple:
 1. Install libpurple (pidgin, finch, etc.), obviously
 1. Run `make install` (or `make install-user`)
 1. [Issue a Slack API token](https://api.slack.com/custom-integrations/legacy-tokens) for yourself
-1. Add your slack account to your libpurple program and enter this token under (Advanced) API token (no password, hostname is optional)
+1. Add your slack account to your libpurple program and enter this token under (Advanced) API token (do *not* enter your slack password; username/hostname are optional but can be set to `you@your.slack.com`)
+
+If you're using a front-end (like Adium or Spectrum2) that does not let you set the API token, you can enter your token as the account password instead.
 
 ## Status
 
