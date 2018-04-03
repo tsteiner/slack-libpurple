@@ -86,6 +86,9 @@ SlackUser *slack_user_update(SlackAccount *sa, json_value *json) {
 			user->avatar_hash = g_strdup(avatar_hash);
 			user->avatar_url = g_strdup(avatar_url);
 			slack_update_avatar(sa, user);
+			if(user->object.buddy) {
+				slack_start_avatar_queue(sa);
+			}
 		}
 	}
 
@@ -234,20 +237,26 @@ void slack_get_info(PurpleConnection *gc, const char *who) {
 
 static void avatar_cb(G_GNUC_UNUSED PurpleUtilFetchUrlData *fetch, gpointer data, const gchar *buf, gsize len, const gchar *error) {
 	SlackUser *user = data;
+	PurpleAccount *pa = PURPLE_BUDDY(user->object.buddy)->account;
 	if(error) {
 		purple_debug_misc("slack", "avatar download failed with '%s'\n", error);
 	} else {
-		PurpleAccount *gc = PURPLE_BUDDY(user->object.buddy)->account;
 		purple_debug_misc("slack", "avatar download of %lu bytes for %s\n", len, user->avatar_hash);
 
 		gpointer icon_data;
 		icon_data = g_memdup(buf, len);
 
-		purple_buddy_icons_set_for_user(gc, user->object.name, icon_data, len, user->avatar_hash);
+		purple_buddy_icons_set_for_user(pa, user->object.name, icon_data, len, user->avatar_hash);
 	}
 	g_object_unref(user);
-}
 
+	SlackAccount *sa = get_slack_account(pa);
+	if(sa && g_queue_get_length(sa->avatar_queue)) {
+		SlackUser *user = g_queue_pop_head(sa->avatar_queue);
+		purple_debug_misc("slack", "Queued download of avatar for %s\n", user->object.name);
+		purple_util_fetch_url(user->avatar_url, TRUE, NULL, TRUE, avatar_cb, user);
+	}
+}
 
 void slack_update_avatar(SlackAccount *sa, SlackUser *user) {
 	if(user->object.buddy && user->avatar_hash && user->avatar_url) {
@@ -257,9 +266,19 @@ void slack_update_avatar(SlackAccount *sa, SlackUser *user) {
 			return;
 		}
 
-		purple_debug_misc("slack", "new avatar for %s, continuing with download.\n", user->object.name);
+		purple_debug_misc("slack", "new avatar for %s, queueing for download.\n", user->object.name);
 		// increase user ref-count to be decreased in avatar_cb
 		g_object_ref(user);
+		g_queue_push_tail(sa->avatar_queue, user);
+	}
+}
+
+void slack_start_avatar_queue(SlackAccount *sa) {
+	int queue_len = g_queue_get_length(sa->avatar_queue);
+	purple_debug_misc("slack", "Starting run of avatar queue (len %d)\n", queue_len);
+	if(queue_len) {
+		SlackUser *user = g_queue_pop_head(sa->avatar_queue);
+		purple_debug_misc("slack", "Queued download of avatar for %s\n", user->object.name);
 		purple_util_fetch_url(user->avatar_url, TRUE, NULL, TRUE, avatar_cb, user);
 	}
 }

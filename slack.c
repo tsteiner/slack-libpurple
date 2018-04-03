@@ -133,6 +133,8 @@ static void slack_login(PurpleAccount *account) {
 	sa->channel_names = g_hash_table_new_full(g_str_hash,      g_str_equal,           NULL, NULL);
 	sa->channel_cids = g_hash_table_new_full(g_direct_hash,    g_direct_equal,        NULL, NULL);
 
+	sa->avatar_queue = g_queue_new();
+
 	sa->buddies = g_hash_table_new_full(/* slack_object_id_hash, slack_object_id_equal, */ g_str_hash, g_str_equal, NULL, NULL);
 
 	sa->mark_list = MARK_LIST_END;
@@ -169,6 +171,7 @@ void slack_login_step(SlackAccount *sa) {
 		case 5:
 			slack_presence_sub(sa);
 			purple_connection_set_state(sa->gc, PURPLE_CONNECTED);
+			slack_start_avatar_queue(sa);
 	}
 #undef MSG
 }
@@ -200,6 +203,9 @@ static void slack_close(PurpleConnection *gc) {
 	g_hash_table_destroy(sa->ims);
 	g_hash_table_destroy(sa->user_names);
 	g_hash_table_destroy(sa->users);
+
+	g_queue_free_full(sa->avatar_queue, g_object_unref);
+
 	g_free(sa->team.id);
 	g_free(sa->team.name);
 	g_free(sa->team.domain);
