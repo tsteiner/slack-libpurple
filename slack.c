@@ -174,7 +174,6 @@ void slack_login_step(SlackAccount *sa) {
 		case 5:
 			slack_presence_sub(sa);
 			purple_connection_set_state(sa->gc, PURPLE_CONNECTED);
-			slack_start_avatar_queue(sa);
 	}
 #undef MSG
 }

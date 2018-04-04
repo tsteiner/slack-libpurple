@@ -39,6 +39,5 @@ char *slack_status_text(PurpleBuddy *buddy);
 void slack_get_info(PurpleConnection *gc, const char *who);
 
 void slack_update_avatar(SlackAccount *sa, SlackUser *user);
-void slack_start_avatar_queue(SlackAccount *sa);
 
 #endif // _PURPLE_SLACK_USER_H

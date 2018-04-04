@@ -69,27 +69,22 @@ SlackUser *slack_user_update(SlackAccount *sa, json_value *json) {
 
 	json_value *profile = json_get_prop_type(json, "profile", object);
 	if (profile) {
+		const char *status = json_get_prop_strptr1(profile, "status_text") ?: json_get_prop_strptr1(profile, "current_status");
 		g_free(user->status);
-		user->status = NULL;
-		const char *status = json_get_prop_strptr(profile, "status_text") ?: json_get_prop_strptr(profile, "current_status");
-		if (status && *status)
-			user->status = g_strdup(status);
+		user->status = g_strdup(status);
 
-		if (user == sa->self)
-			purple_account_set_user_info(sa->account, sa->self->status);
-
-		const char *avatar_hash = json_get_prop_strptr(profile, "avatar_hash");
-		const char *avatar_url = json_get_prop_strptr(profile, "image_192");
-		if(avatar_hash && avatar_url) {
+		if (purple_account_get_bool(sa->account, "enable_avatar_download", FALSE)) {
+			const char *avatar_hash = json_get_prop_strptr1(profile, "avatar_hash");
+			const char *avatar_url = json_get_prop_strptr1(profile, "image_192");
 			g_free(user->avatar_hash);
 			g_free(user->avatar_url);
 			user->avatar_hash = g_strdup(avatar_hash);
 			user->avatar_url = g_strdup(avatar_url);
 			slack_update_avatar(sa, user);
-			if(user->object.buddy) {
-				slack_start_avatar_queue(sa);
-			}
 		}
+
+		if (user == sa->self)
+			purple_account_set_user_info(sa->account, sa->self->status);
 	}
 
 	return user;
@@ -110,8 +105,8 @@ static void users_list_cb(SlackAccount *sa, gpointer data, json_value *json, con
 	for (unsigned i = 0; i < members->u.array.length; i ++)
 		slack_user_update(sa, members->u.array.values[i]);
 
-	char *cursor = json_get_prop_strptr(json_get_prop(json, "response_metadata"), "next_cursor");
-	if (cursor && *cursor)
+	char *cursor = json_get_prop_strptr1(json_get_prop(json, "response_metadata"), "next_cursor");
+	if (cursor)
 		slack_api_call(sa, users_list_cb, NULL, "users.list", "presence", "false", SLACK_PAGINATE_LIMIT, "cursor", cursor, NULL);
 	else
 		slack_login_step(sa);
@@ -235,52 +230,48 @@ void slack_get_info(PurpleConnection *gc, const char *who) {
 		slack_api_call(sa, users_info_cb, g_strdup(who), "users.info", "user", user->object.id, NULL);
 }
 
+static void avatar_load_next(SlackAccount *sa);
+
 static void avatar_cb(G_GNUC_UNUSED PurpleUtilFetchUrlData *fetch, gpointer data, const gchar *buf, gsize len, const gchar *error) {
-	SlackUser *user = data;
-	PurpleAccount *pa = PURPLE_BUDDY(user->object.buddy)->account;
-	if(error) {
-		purple_debug_misc("slack", "avatar download failed with '%s'\n", error);
-	} else {
-		purple_debug_misc("slack", "avatar download of %lu bytes for %s\n", len, user->avatar_hash);
-
-		gpointer icon_data;
-		icon_data = g_memdup(buf, len);
-
-		purple_buddy_icons_set_for_user(pa, user->object.name, icon_data, len, user->avatar_hash);
+	SlackAccount *sa = data;
+	SlackUser *user = g_queue_pop_head(sa->avatar_queue);
+	g_return_if_fail(user);
+	if (error) {
+		purple_debug_warning("slack", "avatar download failed: %s\n", error);
+		g_object_unref(user);
+		return;
 	}
+
+	gpointer icon_data = g_memdup(buf, len);
+	purple_buddy_icons_set_for_user(sa->account, user->object.name, icon_data, len, user->avatar_hash);
 	g_object_unref(user);
 
-	SlackAccount *sa = get_slack_account(pa);
-	if(sa && g_queue_get_length(sa->avatar_queue)) {
-		SlackUser *user = g_queue_pop_head(sa->avatar_queue);
-		purple_debug_misc("slack", "Queued download of avatar for %s\n", user->object.name);
-		purple_util_fetch_url(user->avatar_url, TRUE, NULL, TRUE, avatar_cb, user);
-	}
+	avatar_load_next(sa);
+}
+
+static void avatar_load_next(SlackAccount *sa) {
+	SlackUser *user = g_queue_peek_head(sa->avatar_queue);
+	if (!user)
+		return;
+	purple_debug_misc("slack", "downloading avatar for %s\n", user->object.name);
+	purple_util_fetch_url_request_len_with_account(sa->account, user->avatar_url, TRUE, NULL, TRUE, NULL, FALSE, 131072, avatar_cb, sa);
 }
 
 void slack_update_avatar(SlackAccount *sa, SlackUser *user) {
-	if(purple_account_get_bool(sa->account, "enable_avatar_download", FALSE) &&
-			user->object.buddy && user->avatar_hash && user->avatar_url) {
+	if (!(user->object.buddy && user->avatar_hash && user->avatar_url))
+		return;
 
-		const char *checksum = purple_buddy_icons_get_checksum_for_user(user_buddy(user));
-		if(checksum && strcmp(checksum, user->avatar_hash) == 0) {
-			purple_debug_misc("slack", "avatar checksum for %s is the same, skipping\n", user->object.name);
-			return;
-		}
+	const char *checksum = purple_buddy_icons_get_checksum_for_user(user_buddy(user));
+	if (!g_strcmp0(checksum, user->avatar_hash))
+		return;
 
-		purple_debug_misc("slack", "new avatar for %s, queueing for download.\n", user->object.name);
-		// increase user ref-count to be decreased in avatar_cb
-		g_object_ref(user);
-		g_queue_push_tail(sa->avatar_queue, user);
-	}
-}
+	/* if nothing was on the queue being loaded, we will start a new load */
+	gboolean empty = g_queue_is_empty(sa->avatar_queue);
 
-void slack_start_avatar_queue(SlackAccount *sa) {
-	int queue_len = g_queue_get_length(sa->avatar_queue);
-	purple_debug_misc("slack", "Starting run of avatar queue (len %d)\n", queue_len);
-	if(queue_len) {
-		SlackUser *user = g_queue_pop_head(sa->avatar_queue);
-		purple_debug_misc("slack", "Queued download of avatar for %s\n", user->object.name);
-		purple_util_fetch_url(user->avatar_url, TRUE, NULL, TRUE, avatar_cb, user);
-	}
+	/* increase user ref-count to be decreased in avatar_cb */
+	g_object_ref(user);
+	g_queue_push_tail(sa->avatar_queue, user);
+	purple_debug_misc("slack", "new avatar for %s, queueing for download.\n", user->object.name);
+	if (empty)
+		avatar_load_next(sa);
 }
