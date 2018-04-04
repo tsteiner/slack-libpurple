@@ -46,6 +46,8 @@ typedef struct _SlackAccount {
 
 	guint mark_timer;
 	SlackObject *mark_list;
+
+	GQueue *avatar_queue; /* Queue for avatar downloads */
 } SlackAccount;
 
 void slack_login_step(SlackAccount *sa);
