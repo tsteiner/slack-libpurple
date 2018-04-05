@@ -17,4 +17,4 @@ Here's how slack concepts are mapped to purple:
 
 If you're using a front-end (like Adium or Spectrum2) that does not let you set the API token, you can enter your token as the account password instead.
 
-@EionRobb is kindly providing windows builds (here)[https://eion.robbmob.com/libslack.dll].
+@EionRobb is kindly providing windows builds [here](https://eion.robbmob.com/libslack.dll).
