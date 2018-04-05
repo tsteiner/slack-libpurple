@@ -17,14 +17,4 @@ Here's how slack concepts are mapped to purple:
 
 If you're using a front-end (like Adium or Spectrum2) that does not let you set the API token, you can enter your token as the account password instead.
 
-## Status
-
-- [x] Basic IM (direct message) functionality
-- [x] Basic channel (chat) functionality
-- [ ] Apply buddy changes to open/close channels
-- [x] Proper message formatting (for @mentions and such, incoming only)
-- [x] Set presence/status (text only)
-- [x] Retrieve message history to populate new conversations (channels only)?
-- [ ] Images/icons?
-- [ ] File transfers
-- [ ] Optimize HTTP connections (libpurple 3?)
+@EionRobb is kindly providing windows builds (here)[https://eion.robbmob.com/libslack.dll].
