@@ -387,7 +387,11 @@ static void handle_message(SlackAccount *sa, SlackObject *obj, json_value *json,
 		user = sa->self;
 #if PURPLE_VERSION_CHECK(2,12,0)
 		flags |= PURPLE_MESSAGE_REMOTE_SEND;
+#else
+		flags |= 0x10000;
 #endif
+		flags |= PURPLE_MESSAGE_SEND;
+		flags &= ~PURPLE_MESSAGE_RECV;
 	}
 	/* for bots providing different display name */
 	const char *username = json_get_prop_strptr(message, "username");
