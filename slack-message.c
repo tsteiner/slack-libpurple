@@ -506,7 +506,7 @@ static void get_history_cb(SlackAccount *sa, gpointer data, json_value *json, co
 		if (g_strcmp0(json_get_prop_strptr(msg, "type"), "message"))
 			continue;
 
-		handle_message(sa, obj, msg, PURPLE_MESSAGE_RECV | PURPLE_MESSAGE_DELAYED | PURPLE_MESSAGE_NO_LOG);
+		handle_message(sa, obj, msg, PURPLE_MESSAGE_RECV | PURPLE_MESSAGE_DELAYED);
 	}
 	/* TODO: has_more? */
 
