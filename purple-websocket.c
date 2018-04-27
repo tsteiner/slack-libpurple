@@ -290,8 +290,8 @@ static void ws_input_cb(gpointer data, G_GNUC_UNUSED gint source, PurpleInputCon
 	PurpleWebsocket *ws = data;
 
 	while (cond & PURPLE_INPUT_WRITE) {
-		g_return_if_fail(ws->output.off < ws->output.len);
-		ssize_t len = ws->ssl_connection
+		ssize_t len = ws->output.off >= ws->output.len ? 0 :
+			ws->ssl_connection
 			? (ssize_t)purple_ssl_write(ws->ssl_connection, ws->output.buf + ws->output.off, ws->output.len - ws->output.off)
 			: write(ws->fd, ws->output.buf + ws->output.off, ws->output.len - ws->output.off);
 
@@ -302,6 +302,7 @@ static void ws_input_cb(gpointer data, G_GNUC_UNUSED gint source, PurpleInputCon
 			}
 			cond &= ~PURPLE_INPUT_WRITE;
 		} else if ((ws->output.off += len) >= ws->output.len) {
+			g_assert(ws->output.off == ws->output.len);
 			if (!ws_input(ws))
 				return;
 			break;
