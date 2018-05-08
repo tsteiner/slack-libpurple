@@ -8,6 +8,7 @@
 #include "slack-user.h"
 #include "slack-api.h"
 #include "slack-message.h"
+#include "slack-conversation.h"
 #include "slack-blist.h"
 
 void slack_blist_uncache(SlackAccount *sa, PurpleBlistNode *b) {

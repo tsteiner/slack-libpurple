@@ -1,7 +1,10 @@
+#include <debug.h>
+
 #include "slack-json.h"
 #include "slack-api.h"
 #include "slack-channel.h"
 #include "slack-im.h"
+#include "slack-message.h"
 #include "slack-conversation.h"
 
 static void conversation_update(SlackAccount *sa, json_value *json) {
@@ -96,4 +99,69 @@ void slack_mark_conversation(SlackAccount *sa, PurpleConversation *conv) {
 
 	/* start */
 	sa->mark_timer = purple_timeout_add_seconds(5, mark_conversation_timer, sa);
+}
+
+static void get_history_cb(SlackAccount *sa, gpointer data, json_value *json, const char *error) {
+	SlackObject *obj = data;
+	json_value *list = json_get_prop_type(json, "messages", array);
+
+	if (!list || error) {
+		purple_debug_error("slack", "Error loading channel history: %s\n", error ?: "missing");
+		g_object_unref(obj);
+		return;
+	}
+
+	/* what order are these in? */
+	for (unsigned i = list->u.array.length; i; i --) {
+		json_value *msg = list->u.array.values[i-1];
+		if (g_strcmp0(json_get_prop_strptr(msg, "type"), "message"))
+			continue;
+
+		slack_handle_message(sa, obj, msg, PURPLE_MESSAGE_RECV | PURPLE_MESSAGE_DELAYED);
+	}
+	/* TODO: has_more? */
+
+	g_object_unref(obj);
+}
+
+void slack_get_history(SlackAccount *sa, SlackObject *conv, const char *since, unsigned count) {
+	if (SLACK_IS_CHANNEL(conv)) {
+		SlackChannel *chan = (SlackChannel*)conv;
+		if (!chan->cid)
+			slack_chat_open(sa, chan);
+	}
+	if (count == 0)
+		return;
+	const char *id = slack_conversation_id(conv);
+	g_return_if_fail(id);
+
+	char count_buf[6] = "";
+	snprintf(count_buf, 5, "%u", count);
+	slack_api_call(sa, get_history_cb, g_object_ref(conv), "conversations.history", "channel", id, "oldest", since ?: "0", "limit", count_buf, NULL);
+}
+
+void slack_get_history_unread(SlackAccount *sa, SlackObject *conv, json_value *json) {
+	slack_get_history(sa, conv,
+			json_get_prop_strptr(json, "last_read"),
+			json_get_prop_val(json, "unread_count", integer, 0));
+}
+
+static void get_conversation_unread_cb(SlackAccount *sa, gpointer data, json_value *json, const char *error) {
+	SlackObject *conv = data;
+	json = json_get_prop_type(json, "channel", object);
+
+	if (!json || error) {
+		purple_debug_error("slack", "Error getting conversation unread info: %s\n", error ?: "missing");
+		g_object_unref(conv);
+		return;
+	}
+
+	slack_get_history_unread(sa, conv, json);
+	g_object_unref(conv);
+}
+
+void slack_get_conversation_unread(SlackAccount *sa, SlackObject *conv) {
+	const char *id = slack_conversation_id(conv);
+	g_return_if_fail(id);
+	slack_api_call(sa, get_conversation_unread_cb, g_object_ref(conv), "conversations.info", "channel", id, NULL);
 }

@@ -82,6 +82,23 @@ static char *slack_get_chat_name(GHashTable *info) {
 	return g_strdup(g_hash_table_lookup(info, "name"));
 }
 
+static void slack_conversation_created(PurpleConversation *conv, void *data) {
+	/* need to handle get_history for IMs (other conversations handled in slack_join_chat) */
+	if (conv->type != PURPLE_CONV_TYPE_IM)
+		return;
+	SlackAccount *sa = get_slack_account(conv->account);
+	if (!sa)
+		return;
+	if (!purple_account_get_bool(sa->account, "get_history", FALSE))
+		return;
+
+	SlackUser *user = g_hash_table_lookup(sa->user_names, purple_conversation_get_name(conv));
+	if (!user)
+		return;
+
+	slack_get_conversation_unread(sa, &user->object);
+}
+
 static void slack_conversation_updated(PurpleConversation *conv, PurpleConvUpdateType type, void *data) {
 	/* TODO: channel TYPING? */
 	if (type != PURPLE_CONV_UPDATE_UNSEEN)
@@ -101,6 +118,8 @@ static void slack_login(PurpleAccount *account) {
 	static gboolean signals_connected = FALSE;
 	if (!signals_connected) {
 		signals_connected = TRUE;
+		purple_signal_connect(purple_conversations_get_handle(), "conversation-created",
+				gc->prpl, PURPLE_CALLBACK(slack_conversation_created), NULL);
 		purple_signal_connect(purple_conversations_get_handle(), "conversation-updated",
 				gc->prpl, PURPLE_CALLBACK(slack_conversation_updated), NULL);
 	}

@@ -338,7 +338,7 @@ void slack_json_to_html(GString *html, SlackAccount *sa, json_value *message, Pu
 			slack_attachment_to_html(html, sa, attachments->u.array.values[i]);
 }
 
-static void handle_message(SlackAccount *sa, SlackObject *obj, json_value *json, PurpleMessageFlags flags) {
+void slack_handle_message(SlackAccount *sa, SlackObject *obj, json_value *json, PurpleMessageFlags flags) {
 	if (!obj) {
 		purple_debug_warning("slack", "Message to unknown channel %s\n", json_get_prop_strptr(json, "channel"));
 		return;
@@ -452,7 +452,7 @@ static void handle_message(SlackAccount *sa, SlackObject *obj, json_value *json,
 void slack_message(SlackAccount *sa, json_value *json) {
 	const char *channel_id = json_get_prop_strptr(json, "channel");
 
-	handle_message(sa, slack_conversation_lookup_sid(sa, channel_id),
+	slack_handle_message(sa, slack_conversation_lookup_sid(sa, channel_id),
 			json, PURPLE_MESSAGE_RECV);
 }
 
@@ -488,41 +488,4 @@ unsigned int slack_send_typing(PurpleConnection *gc, const char *who, PurpleTypi
 	g_string_free(channel, TRUE);
 
 	return 3;
-}
-
-static void get_history_cb(SlackAccount *sa, gpointer data, json_value *json, const char *error) {
-	SlackObject *obj = data;
-	json_value *list = json_get_prop_type(json, "messages", array);
-
-	if (!list || error) {
-		purple_debug_error("slack", "Error loading channel history: %s\n", error ?: "missing");
-		g_object_unref(obj);
-		return;
-	}
-
-	/* what order are these in? */
-	for (unsigned i = list->u.array.length; i; i --) {
-		json_value *msg = list->u.array.values[i-1];
-		if (g_strcmp0(json_get_prop_strptr(msg, "type"), "message"))
-			continue;
-
-		handle_message(sa, obj, msg, PURPLE_MESSAGE_RECV | PURPLE_MESSAGE_DELAYED);
-	}
-	/* TODO: has_more? */
-
-	g_object_unref(obj);
-}
-
-void slack_get_history(SlackAccount *sa, SlackObject *conv, const char *since, unsigned count) {
-	if (SLACK_IS_CHANNEL(conv)) {
-		SlackChannel *chan = (SlackChannel*)conv;
-		if (!chan->cid)
-			slack_chat_open(sa, chan);
-	}
-	const char *id = slack_conversation_id(conv);
-	g_return_if_fail(id);
-
-	char count_buf[6] = "";
-	snprintf(count_buf, 5, "%u", count);
-	slack_api_call(sa, get_history_cb, g_object_ref(conv), "conversations.history", "channel", id, "oldest", since ?: "0", "limit", count_buf, NULL);
 }

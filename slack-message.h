@@ -8,7 +8,13 @@
 gchar *slack_html_to_message(SlackAccount *sa, const char *s, PurpleMessageFlags flags);
 void slack_message_to_html(GString *html, SlackAccount *sa, gchar *s, PurpleMessageFlags *flags, gchar *prepend_newline_str);
 void slack_json_to_html(GString *html, SlackAccount *sa, json_value *json, PurpleMessageFlags *flags);
-void slack_get_history(SlackAccount *sa, SlackObject *obj, const char *since, unsigned count);
+/**
+ * Display a message
+ *
+ * @param json the json message object (should contain "subtype" field)
+ * @param flags additional flags for message
+ */
+void slack_handle_message(SlackAccount *sa, SlackObject *conv, json_value *json, PurpleMessageFlags flags);
 
 /* RTM event handlers */
 void slack_message(SlackAccount *sa, json_value *json);

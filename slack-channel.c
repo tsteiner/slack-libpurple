@@ -8,6 +8,7 @@
 #include "slack-rtm.h"
 #include "slack-message.h"
 #include "slack-user.h"
+#include "slack-conversation.h"
 #include "slack-channel.h"
 
 G_DEFINE_TYPE(SlackChannel, slack_channel, SLACK_TYPE_OBJECT);
@@ -185,9 +186,7 @@ static void channels_info_cb(SlackAccount *sa, gpointer data, json_value *json, 
 	}
 
 	if (purple_account_get_bool(sa->account, "get_history", FALSE)) {
-		slack_get_history(sa, &chan->object,
-				json_get_prop_strptr(json, "last_read"),
-				json_get_prop_val(json, "unread_count", integer, 0));
+		slack_get_history_unread(sa, &chan->object, json);
 	}
 }
 
