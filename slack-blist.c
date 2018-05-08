@@ -99,7 +99,11 @@ static void get_history_cb(PurpleBlistNode *buddy, PurpleRequestFields *fields) 
 	SlackObject *obj = slack_blist_node_get_obj(buddy, &sa);
 	g_return_if_fail(obj);
 
-	slack_get_history(sa, obj, NULL, purple_request_fields_get_integer(fields, "count"));
+	int count = purple_request_fields_get_integer(fields, "count");
+	if (count > 0)
+		slack_get_history(sa, obj, NULL, count);
+	else
+		slack_get_conversation_unread(sa, obj);
 }
 
 static void get_history_prompt(PurpleBlistNode *buddy) {
@@ -109,7 +113,7 @@ static void get_history_prompt(PurpleBlistNode *buddy) {
 
 	PurpleRequestFields *fields = purple_request_fields_new();
 	PurpleRequestFieldGroup *group = purple_request_field_group_new("NULL");
-	PurpleRequestField *field = purple_request_field_int_new("count", "Count", 100);
+	PurpleRequestField *field = purple_request_field_int_new("count", "Count (0 for unread)", 100);
 	purple_request_field_set_required(field, TRUE);
 	purple_request_field_group_add_field(group, field);
 	purple_request_fields_add_group(fields, group);
