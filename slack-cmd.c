@@ -72,7 +72,7 @@ static PurpleCmdRet send_cmd(PurpleConversation *conv, const gchar *cmd, gchar *
 	g_string_append(msg, cmd);
 
 	/* https://github.com/ErikKalkoken/slackApiDoc/blob/master/chat.command.md */
-	slack_api_call(sa, send_cmd_cb, conv, "chat.command", "channel", SLACK_IS_USER(obj) ? ((SlackUser*)obj)->im : obj->id, "command", msg->str, "text", args && args[0] ? args[0] : "", NULL);
+	slack_api_call(sa, send_cmd_cb, conv, "chat.command", "channel", slack_conversation_id(obj), "command", msg->str, "text", args && args[0] ? args[0] : "", NULL);
 	g_string_free(msg, TRUE);
 
 	return PURPLE_CMD_RET_OK;
