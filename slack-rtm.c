@@ -129,6 +129,14 @@ static void rtm_cb(PurpleWebsocket *ws, gpointer data, PurpleWebsocketOp op, con
 	json_value_free(json);
 }
 
+static gboolean ping_timer(gpointer data) {
+	PurpleWebsocket *rtm = data;
+
+	/* we don't care about the response (at this point) so just send a uni-directional PONG */
+	purple_websocket_send(rtm, PURPLE_WEBSOCKET_PONG, NULL, 0);
+	return TRUE;
+}
+
 static void rtm_connect_cb(SlackAccount *sa, gpointer data, json_value *json, const char *error) {
 
 	if (sa->rtm) {
@@ -167,6 +175,8 @@ static void rtm_connect_cb(SlackAccount *sa, gpointer data, json_value *json, co
 	slack_login_step(sa);
 	purple_debug_info("slack", "RTM URL: %s\n", url);
 	sa->rtm = purple_websocket_connect(sa->account, url, NULL, rtm_cb, sa);
+
+	sa->ping_timer = purple_timeout_add_seconds(60, ping_timer, sa->rtm);
 }
 
 void slack_rtm_cancel(SlackRTMCall *call) {

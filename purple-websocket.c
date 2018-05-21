@@ -245,7 +245,7 @@ static size_t ws_read_message(PurpleWebsocket *ws) {
 					}
 					break;
 				case WS_OP_PING:
-					purple_websocket_send(ws, PURPLE_WEBSOCKET_PONG, NULL, 0);
+					purple_websocket_send(ws, PURPLE_WEBSOCKET_PONG, frag[0].p, frag[0].l);
 					break;
 				default:
 					ws_error(ws, "Unknown frame op");

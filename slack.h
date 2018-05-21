@@ -23,6 +23,7 @@ typedef struct _SlackAccount {
 	PurpleWebsocket *rtm;
 	guint rtm_id;
 	GHashTable *rtm_call; /* unsigned rtm_id -> SlackRTMCall */
+	guint ping_timer;
 
 	struct _SlackTeam {
 		char *id;

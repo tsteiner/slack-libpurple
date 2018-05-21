@@ -209,6 +209,11 @@ static void slack_close(PurpleConnection *gc) {
 		sa->mark_timer = 0;
 	}
 
+	if (sa->ping_timer) {
+		purple_timeout_remove(sa->ping_timer);
+		sa->ping_timer = 0;
+	}
+
 	if (sa->rtm)
 		purple_websocket_abort(sa->rtm);
 	g_hash_table_destroy(sa->rtm_call);
