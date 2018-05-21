@@ -464,10 +464,18 @@ void slack_user_typing(SlackAccount *sa, json_value *json) {
 	SlackChannel *chan;
 	if (user && slack_object_id_is(user->im, channel_id)) {
 		/* IM */
-		serv_got_typing(sa->gc, user->object.name, 3, PURPLE_TYPING);
-	} else if ((chan = (SlackChannel*)slack_object_hash_table_lookup(sa->channels, channel_id))) {
+		serv_got_typing(sa->gc, user->object.name, 4, PURPLE_TYPING);
+	} else if (user && (chan = (SlackChannel*)slack_object_hash_table_lookup(sa->channels, channel_id))) {
 		/* Channel */
-		/* TODO: purple_conv_chat_user_set_flags (though nothing seems to use this) */
+#if 0
+		PurpleConvChat *chat = slack_channel_get_conversation(sa, chan);
+		PurpleConvChatBuddy *cb = chat ? purple_conv_chat_cb_find(chat, user->object.name) : NULL;
+		if (cb) {
+			purple_conv_chat_user_set_flags(chat, user->object.name, cb->flags | PURPLE_CBFLAGS_TYPING);
+			/* TODO: clear typing after 4 seconds (like purple_conv_im typing_timeout), but only if no more recent update, and don't crash if we're gone:
+			 * schedule a timeout and set a cb->attribute with the current time? keep a list of current typing chat/user pairs? */
+		}
+#endif
 	} else {
 		purple_debug_warning("slack", "Unhandled typing: %s@%s\n", user_id, channel_id);
 	}
