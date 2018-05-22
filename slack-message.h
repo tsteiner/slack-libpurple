@@ -17,7 +17,7 @@ void slack_json_to_html(GString *html, SlackAccount *sa, json_value *json, Purpl
 void slack_handle_message(SlackAccount *sa, SlackObject *conv, json_value *json, PurpleMessageFlags flags);
 
 /* RTM event handlers */
-void slack_message(SlackAccount *sa, json_value *json);
+gboolean slack_message(SlackAccount *sa, json_value *json);
 void slack_user_typing(SlackAccount *sa, json_value *json);
 
 /* Purple protocol handlers */

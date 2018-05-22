@@ -7,11 +7,11 @@
 #include "slack-message.h"
 #include "slack-conversation.h"
 
-static void conversation_update(SlackAccount *sa, json_value *json) {
+static SlackObject *conversation_update(SlackAccount *sa, json_value *json) {
 	if (json_get_prop_boolean(json, "is_im", FALSE))
-		slack_im_set(sa, json, &json_value_none);
+		return (SlackObject*)slack_im_set(sa, json, &json_value_none, FALSE);
 	else
-		slack_channel_set(sa, json, SLACK_CHANNEL_UNKNOWN);
+		return (SlackObject*)slack_channel_set(sa, json, SLACK_CHANNEL_UNKNOWN);
 }
 
 #define CONVERSATIONS_LIST_CALL(sa, ARGS...) \
@@ -50,6 +50,33 @@ SlackObject *slack_conversation_get_conversation(SlackAccount *sa, PurpleConvers
 		default:
 			return NULL;
 	}
+}
+
+struct conversation_retrieve {
+	SlackConversationCallback *cb;
+	gpointer data;
+};
+
+static void conversation_retrieve_cb(SlackAccount *sa, gpointer data, json_value *json, const char *error) {
+	struct conversation_retrieve *lookup = data;
+	json_value *chan = json_get_prop_type(json, "channel", object);
+	SlackObject *obj = NULL;
+	if (!chan || error)
+		purple_debug_error("slack", "Error retrieving conversation: %s\n", error ?: "missing");
+	else
+		obj = conversation_update(sa, chan);
+	lookup->cb(sa, lookup->data, obj);
+	g_free(lookup);
+}
+
+void slack_conversation_retrieve(SlackAccount *sa, const char *sid, SlackConversationCallback *cb, gpointer data) {
+	SlackObject *obj = slack_conversation_lookup_sid(sa, sid);
+	if (obj)
+		return cb(sa, data, obj);
+	struct conversation_retrieve *lookup = g_new(struct conversation_retrieve, 1);
+	lookup->cb = cb;
+	lookup->data = data;
+	slack_api_call(sa, conversation_retrieve_cb, lookup, "conversations.info", "channel", sid, NULL);
 }
 
 static gboolean mark_conversation_timer(gpointer data) {

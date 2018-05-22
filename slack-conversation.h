@@ -33,6 +33,16 @@ void slack_conversations_load(SlackAccount *sa);
 
 /** @name API */
 SlackObject *slack_conversation_get_conversation(SlackAccount *sa, PurpleConversation *conv);
+
+typedef void SlackConversationCallback(SlackAccount *sa, gpointer data, SlackObject *obj);
+
+/**
+ * Get the SlackObject associated with a conversation id (like slack_conversation_lookup_sid).
+ * If it's not known, look it up.
+ * The callback may be made inline or later, possibly with a NULL obj on unknown conversation or error.
+ */
+void slack_conversation_retrieve(SlackAccount *sa, const char *sid, SlackConversationCallback *cb, gpointer data);
+
 void slack_mark_conversation(SlackAccount *sa, PurpleConversation *conv);
 
 /**

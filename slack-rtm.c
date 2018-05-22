@@ -17,9 +17,9 @@ struct _SlackRTMCall {
 	gpointer data;
 };
 
-static void rtm_msg(SlackAccount *sa, const char *type, json_value *json) {
+static gboolean rtm_msg(SlackAccount *sa, const char *type, json_value *json) {
 	if (!strcmp(type, "message")) {
-		slack_message(sa, json);
+		return slack_message(sa, json);
 	}
 	else if (!strcmp(type, "user_typing")) {
 		slack_user_typing(sa, json);
@@ -76,6 +76,7 @@ static void rtm_msg(SlackAccount *sa, const char *type, json_value *json) {
 	else {
 		purple_debug_info("slack", "Unhandled RTM type %s\n", type);
 	}
+	return FALSE;
 }
 
 static void rtm_cb(PurpleWebsocket *ws, gpointer data, PurpleWebsocketOp op, const guchar *msg, size_t len) {
@@ -117,8 +118,10 @@ static void rtm_cb(PurpleWebsocket *ws, gpointer data, PurpleWebsocketOp op, con
 			g_free(call);
 		}
 	}
-	else if (type)
-		rtm_msg(sa, type, json);
+	else if (type) {
+		if (rtm_msg(sa, type, json))
+			json = NULL;
+	}
 	else {
 		purple_debug_error("slack", "RTM: %.*s\n", (int)len, msg);
 		purple_connection_error_reason(sa->gc,
@@ -126,7 +129,8 @@ static void rtm_cb(PurpleWebsocket *ws, gpointer data, PurpleWebsocketOp op, con
 				"Could not parse RTM JSON");
 	}
 
-	json_value_free(json);
+	if (json)
+		json_value_free(json);
 }
 
 static gboolean ping_timer(gpointer data) {

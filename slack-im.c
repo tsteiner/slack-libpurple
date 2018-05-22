@@ -31,14 +31,14 @@ void slack_presence_sub(SlackAccount *sa) {
 	g_string_free(ids, TRUE);
 }
 
-gboolean slack_im_set(SlackAccount *sa, json_value *json, const json_value *open_user) {
+SlackUser *slack_im_set(SlackAccount *sa, json_value *json, const json_value *open_user, gboolean update_sub) {
 	const char *sid = json_get_strptr(json);
 	if (sid)
 		json = NULL;
 	else
 		sid = json_get_prop_strptr(json, "id");
 	if (!sid)
-		return FALSE;
+		return NULL;
 	slack_object_id id;
 	slack_object_id_set(id, sid);
 
@@ -46,7 +46,7 @@ gboolean slack_im_set(SlackAccount *sa, json_value *json, const json_value *open
 
 	if (!json_get_prop_boolean(json, "is_open", open_user != NULL)) {
 		if (!user)
-			return FALSE;
+			return user;
 		g_return_val_if_fail(*user->im, FALSE);
 		/* Don't forget im ids because apparently slack might still use them? (#22)
 		g_hash_table_remove(sa->ims, user->im);
@@ -57,18 +57,18 @@ gboolean slack_im_set(SlackAccount *sa, json_value *json, const json_value *open
 			purple_blist_remove_buddy(user_buddy(user));
 			user->object.buddy = NULL;
 		}
-		return TRUE;
+		goto changed;
 	}
 
 	gboolean changed = FALSE;
 
 	const char *user_id = json_get_prop_strptr(json, "user") ?: json_get_strptr(open_user);
-	g_return_val_if_fail(user_id, FALSE);
+	g_return_val_if_fail(user_id, user);
 
 	if (!user) {
 		user = (SlackUser *)slack_object_hash_table_lookup(sa->users, user_id);
 		if (!user)
-			return FALSE;
+			return user;
 		if (slack_object_id_cmp(user->im, id)) {
 			if (*user->im)
 				g_hash_table_remove(sa->ims, user->im);
@@ -97,17 +97,21 @@ gboolean slack_im_set(SlackAccount *sa, json_value *json, const json_value *open
 	slack_update_avatar(sa, user);
 
 	purple_debug_misc("slack", "im %s: %s\n", user->im, user->object.id);
-	return changed;
+	return user;
+
+	if (changed)
+changed:
+	if (update_sub)
+		slack_presence_sub(sa);
+	return user;
 }
 
 void slack_im_close(SlackAccount *sa, json_value *json) {
-	if (slack_im_set(sa, json_get_prop(json, "channel"), NULL))
-		slack_presence_sub(sa);
+	slack_im_set(sa, json_get_prop(json, "channel"), NULL, TRUE);
 }
 
 void slack_im_open(SlackAccount *sa, json_value *json) {
-	if (slack_im_set(sa, json_get_prop(json, "channel"), json_get_prop(json, "user")))
-		slack_presence_sub(sa);
+	slack_im_set(sa, json_get_prop(json, "channel"), json_get_prop(json, "user"), TRUE);
 }
 
 struct send_im {
@@ -136,7 +140,7 @@ static void send_im_open_cb(SlackAccount *sa, gpointer data, json_value *json, c
 
 	json = json_get_prop_type(json, "channel", object);
 	if (json)
-		slack_im_set(sa, json, &json_value_none);
+		slack_im_set(sa, json, &json_value_none, TRUE);
 
 	if (error || !*send->user->im) {
 		purple_conv_present_error(send->user->object.name, sa->account, error ?: "failed to open IM channel");

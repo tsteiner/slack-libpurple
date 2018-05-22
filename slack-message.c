@@ -449,11 +449,15 @@ void slack_handle_message(SlackAccount *sa, SlackObject *obj, json_value *json, 
 	}
 }
 
-void slack_message(SlackAccount *sa, json_value *json) {
-	const char *channel_id = json_get_prop_strptr(json, "channel");
+static void handle_message(SlackAccount *sa, gpointer data, SlackObject *obj) {
+	json_value *json = data;
+	return slack_handle_message(sa, obj, json, PURPLE_MESSAGE_RECV);
+	json_value_free(json);
+}
 
-	slack_handle_message(sa, slack_conversation_lookup_sid(sa, channel_id),
-			json, PURPLE_MESSAGE_RECV);
+gboolean slack_message(SlackAccount *sa, json_value *json) {
+	slack_conversation_retrieve(sa, json_get_prop_strptr(json, "channel"), handle_message, json);
+	return TRUE;
 }
 
 void slack_user_typing(SlackAccount *sa, json_value *json) {
