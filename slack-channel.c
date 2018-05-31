@@ -231,6 +231,8 @@ void slack_join_chat(PurpleConnection *gc, GHashTable *info) {
 	const char *name = g_hash_table_lookup(info, "name");
 	g_return_if_fail(name);
 
+	if (*name == '#')
+		name++;
 	SlackChannel *chan = g_hash_table_lookup(sa->channel_names, name);
 	if (chan)
 		g_object_ref(chan);
