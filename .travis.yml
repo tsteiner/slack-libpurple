@@ -3,4 +3,4 @@ addons:
   apt:
     packages:
       - libpurple-dev
-script: make
+script: make LOCAL_CFLAGS="-Werror"

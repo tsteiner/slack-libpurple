@@ -38,7 +38,6 @@ CFLAGS = \
     -g \
     -O2 \
     -Wall \
-    -Wno-error=strict-aliasing \
     -D_DEFAULT_SOURCE=1 \
     -std=c99 \
 	-I$(PIDGIN_TREE_TOP)/libpurple \
@@ -62,7 +61,8 @@ CFLAGS = \
     -fPIC \
     -D_DEFAULT_SOURCE=1 \
     -std=c99 \
-    $(shell pkg-config --cflags $(PKGS))
+    $(shell pkg-config --cflags $(PKGS)) \
+    $(LOCAL_CFLAGS)
 
 LIBS = $(shell pkg-config --libs $(PKGS))
 
