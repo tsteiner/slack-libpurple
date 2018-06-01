@@ -37,7 +37,7 @@ PLUGIN_DIR_PURPLE:="$(DATA_ROOT_DIR_PURPLE)/plugins"
 CFLAGS = \
     -g \
     -O2 \
-    -Wall -Werror \
+    -Wall \
     -Wno-error=strict-aliasing \
     -D_DEFAULT_SOURCE=1 \
     -std=c99 \
@@ -57,7 +57,7 @@ PKGS=$(PURPLE_MOD) glib-2.0 gobject-2.0
 CFLAGS = \
     -g \
     -O2 \
-    -Wall -Werror \
+    -Wall \
     -Wno-error=strict-aliasing \
     -fPIC \
     -D_DEFAULT_SOURCE=1 \
