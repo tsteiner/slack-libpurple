@@ -67,8 +67,10 @@ SlackUser *slack_im_set(SlackAccount *sa, json_value *json, const json_value *op
 
 	if (!user) {
 		user = (SlackUser *)slack_object_hash_table_lookup(sa->users, user_id);
-		if (!user)
+		if (!user) {
+			purple_debug_warning("IM %s for unknown user: %s\n", sid, user_id);
 			return user;
+		}
 		if (slack_object_id_cmp(user->im, id)) {
 			if (*user->im)
 				g_hash_table_remove(sa->ims, user->im);
