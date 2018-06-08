@@ -29,6 +29,15 @@ void slack_users_load(SlackAccount *sa);
 
 SlackUser *slack_user_update(SlackAccount *sa, json_value *json);
 
+typedef void SlackUserCallback(SlackAccount *sa, gpointer data, SlackUser *user);
+
+/**
+ * Get the SlackUser associated with a user id (in sa->users).
+ * If it's not known, look it up.
+ * The callback may be made inline or later, possibly with a NULL obj on unknown user or error.
+ */
+void slack_user_retrieve(SlackAccount *sa, const char *uid, SlackUserCallback *cb, gpointer data);
+
 /* RTM event handlers */
 void slack_user_changed(SlackAccount *sa, json_value *json);
 void slack_presence_change(SlackAccount *sa, json_value *json);

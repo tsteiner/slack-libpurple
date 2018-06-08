@@ -117,6 +117,33 @@ void slack_users_load(SlackAccount *sa) {
 	slack_api_call(sa, users_list_cb, NULL, "users.list", "presence", "false", SLACK_PAGINATE_LIMIT, NULL);
 }
 
+struct user_retrieve {
+	SlackUserCallback *cb;
+	gpointer data;
+};
+
+static void user_retrieve_cb(SlackAccount *sa, gpointer data, json_value *json, const char *error) {
+	struct user_retrieve *lookup = data;
+	json_value *user = json_get_prop_type(json, "user", object);
+	SlackUser *obj = NULL;
+	if (!user || error)
+		purple_debug_error("slack", "Error retrieving user: %s\n", error ?: "missing");
+	else
+		obj = slack_user_update(sa, user);
+	lookup->cb(sa, lookup->data, obj);
+	g_free(lookup);
+}
+
+void slack_user_retrieve(SlackAccount *sa, const char *uid, SlackUserCallback *cb, gpointer data) {
+	SlackUser *user = (SlackUser *)slack_object_hash_table_lookup(sa->users, uid);
+	if (user)
+		return cb(sa, data, user);
+	struct user_retrieve *lookup = g_new(struct user_retrieve, 1);
+	lookup->cb = cb;
+	lookup->data = data;
+	slack_api_call(sa, user_retrieve_cb, lookup, "users.info", "user", uid, NULL);
+}
+
 static void presence_set(SlackAccount *sa, json_value *json, const char *presence) {
 	if (json->type != json_string)
 		return;

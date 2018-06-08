@@ -55,18 +55,32 @@ SlackObject *slack_conversation_get_conversation(SlackAccount *sa, PurpleConvers
 struct conversation_retrieve {
 	SlackConversationCallback *cb;
 	gpointer data;
+	json_value *json;
 };
+
+static void conversation_retrieve_user_cb(SlackAccount *sa, gpointer data, SlackUser *user) {
+	struct conversation_retrieve *lookup = data;
+	lookup->cb(sa, lookup->data, conversation_update(sa, lookup->json));
+	g_free(lookup);
+}
 
 static void conversation_retrieve_cb(SlackAccount *sa, gpointer data, json_value *json, const char *error) {
 	struct conversation_retrieve *lookup = data;
 	json_value *chan = json_get_prop_type(json, "channel", object);
-	SlackObject *obj = NULL;
-	if (!chan || error)
+	if (!chan || error) {
 		purple_debug_error("slack", "Error retrieving conversation: %s\n", error ?: "missing");
-	else
-		obj = conversation_update(sa, chan);
-	lookup->cb(sa, lookup->data, obj);
-	g_free(lookup);
+		lookup->cb(sa, lookup->data, NULL);
+		g_free(lookup);
+		return;
+	}
+	lookup->json = chan;
+	if (json_get_prop_boolean(json, "is_im", FALSE)) {
+		/* Make sure we know the user, too */
+		const char *uid = json_get_prop_strptr(json, "user");
+		if (uid)
+			return slack_user_retrieve(sa, uid, conversation_retrieve_user_cb, lookup);
+	}
+	return conversation_retrieve_user_cb(sa, lookup, NULL);
 }
 
 void slack_conversation_retrieve(SlackAccount *sa, const char *sid, SlackConversationCallback *cb, gpointer data) {
