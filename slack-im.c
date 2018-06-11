@@ -19,6 +19,8 @@ void slack_presence_sub(SlackAccount *sa) {
 	g_hash_table_iter_init(&iter, sa->ims);
 	gboolean first = TRUE;
 	while (g_hash_table_iter_next(&iter, &id, (gpointer*)&user)) {
+		if (!user->object.buddy)
+			continue;
 		if (first)
 			first = FALSE;
 		else
@@ -44,22 +46,7 @@ SlackUser *slack_im_set(SlackAccount *sa, json_value *json, const json_value *op
 
 	SlackUser *user = g_hash_table_lookup(sa->ims, id);
 
-	if (!json_get_prop_boolean(json, "is_open", open_user != NULL)) {
-		if (!user)
-			return user;
-		g_return_val_if_fail(*user->im, FALSE);
-		/* Don't forget im ids because apparently slack might still use them? (#22)
-		g_hash_table_remove(sa->ims, user->im);
-		slack_object_id_clear(user->im);
-		*/
-		if (user->object.buddy) {
-			slack_blist_uncache(sa, user->object.buddy);
-			purple_blist_remove_buddy(user_buddy(user));
-			user->object.buddy = NULL;
-		}
-		goto changed;
-	}
-
+	gboolean is_open = json_get_prop_boolean(json, "is_open", open_user != NULL);
 	gboolean changed = FALSE;
 
 	const char *user_id = json_get_prop_strptr(json, "user") ?: json_get_strptr(open_user);
@@ -81,29 +68,32 @@ SlackUser *slack_im_set(SlackAccount *sa, json_value *json, const json_value *op
 	} else
 		g_warn_if_fail(slack_object_id_is(user->object.id, user_id));
 
-	if (!user->object.buddy) {
-		user->object.buddy = g_hash_table_lookup(sa->buddies, sid);
-		if (user->object.buddy && PURPLE_BLIST_NODE_IS_BUDDY(user->object.buddy)) {
-			if (user->object.name && strcmp(user->object.name, purple_buddy_get_name(user_buddy(user)))) {
-				purple_blist_rename_buddy(user_buddy(user), user->object.name);
+	if (is_open) {
+		if (!user->object.buddy) {
+			user->object.buddy = g_hash_table_lookup(sa->buddies, sid);
+			if (user->object.buddy && PURPLE_BLIST_NODE_IS_BUDDY(user->object.buddy)) {
+				if (user->object.name && strcmp(user->object.name, purple_buddy_get_name(user_buddy(user)))) {
+					purple_blist_rename_buddy(user_buddy(user), user->object.name);
+					changed = TRUE;
+				}
+			} else {
+				user->object.buddy = PURPLE_BLIST_NODE(purple_buddy_new(sa->account, user->object.name, NULL));
+				slack_blist_cache(sa, user->object.buddy, sid);
+				purple_blist_add_buddy(user_buddy(user), NULL, sa->blist, NULL);
 				changed = TRUE;
 			}
-		} else {
-			user->object.buddy = PURPLE_BLIST_NODE(purple_buddy_new(sa->account, user->object.name, NULL));
-			slack_blist_cache(sa, user->object.buddy, sid);
-			purple_blist_add_buddy(user_buddy(user), NULL, sa->blist, NULL);
-			changed = TRUE;
 		}
+
+		slack_update_avatar(sa, user);
+	} else if (user->object.buddy) {
+		slack_blist_uncache(sa, user->object.buddy);
+		purple_blist_remove_buddy(user_buddy(user));
+		user->object.buddy = NULL;
 	}
 
-	slack_update_avatar(sa, user);
-
 	purple_debug_misc("slack", "im %s: %s\n", user->im, user->object.id);
-	return user;
 
-	if (changed)
-changed:
-	if (update_sub)
+	if (changed && update_sub)
 		slack_presence_sub(sa);
 	return user;
 }
