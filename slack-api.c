@@ -20,9 +20,13 @@ struct _SlackAPICall {
 	PurpleUtilFetchUrlData *fetch;
 	SlackAPICallback *callback;
 	gpointer data;
+
+	SlackAPICall **prev, *next;
 };
 
 static void api_error(SlackAPICall *call, const char *error) {
+	if ((*call->prev = call->next))
+		call->next->prev = call->prev;
 	if (call->callback)
 		call->callback(call->sa, call->data, NULL, error);
 	g_free(call->url);
@@ -60,9 +64,10 @@ static void api_cb(G_GNUC_UNUSED PurpleUtilFetchUrlData *fetch, gpointer data, c
 		return;
 	}
 
-	if (call->callback) {
+	if ((*call->prev = call->next))
+		call->next->prev = call->prev;
+	if (call->callback)
 		call->callback(call->sa, call->data, json, NULL);
-	}
 
 	json_value_free(json);
 	g_free(call->url);
@@ -96,6 +101,10 @@ static void slack_api_call_url(SlackAccount *sa, SlackAPICallback callback, gpoi
 	call->callback = callback;
 	call->url = g_strdup(url);
 	call->data = user_data;
+	if ((call->next = sa->api_calls))
+		call->next->prev = &call->next;
+	call->prev = &sa->api_calls;
+	sa->api_calls = call;
 
 	purple_debug_misc("slack", "api call: %s\n", url);
 	api_retry(call);
@@ -151,4 +160,11 @@ gboolean slack_api_channel_call(SlackAccount *sa, SlackAPICallback callback, gpo
 	slack_api_call_url(sa, callback, user_data, url->str);
 	g_string_free(url, TRUE);
 	return TRUE;
+}
+
+void slack_api_disconnect(SlackAccount *sa) {
+	while (sa->api_calls) {
+		purple_util_fetch_url_cancel(sa->api_calls->fetch);
+		api_error(sa->api_calls, "disconnected");
+	}
 }

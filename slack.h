@@ -20,6 +20,7 @@ typedef struct _SlackAccount {
 	char *token; /* url encoded */
 
 	short login_step;
+	struct _SlackAPICall *api_calls; /* linked list */
 	PurpleWebsocket *rtm;
 	guint rtm_id;
 	GHashTable *rtm_call; /* unsigned rtm_id -> SlackRTMCall */

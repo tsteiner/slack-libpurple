@@ -142,6 +142,10 @@ static gboolean ping_timer(gpointer data) {
 }
 
 static void rtm_connect_cb(SlackAccount *sa, gpointer data, json_value *json, const char *error) {
+	if (error) {
+		purple_connection_error_reason(sa->gc, slack_api_connection_error(error), error);
+		return;
+	}
 
 	if (sa->rtm) {
 		purple_websocket_abort(sa->rtm);

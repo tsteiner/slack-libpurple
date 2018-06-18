@@ -12,6 +12,7 @@ typedef void SlackAPICallback(SlackAccount *sa, gpointer user_data, json_value *
 
 void slack_api_call(SlackAccount *sa, SlackAPICallback *callback, gpointer user_data, const char *method, /* const char *query_param1, const char *query_value1, */ ...) G_GNUC_NULL_TERMINATED;
 gboolean slack_api_channel_call(SlackAccount *sa, SlackAPICallback callback, gpointer user_data, SlackObject *obj, const char *method, ...) G_GNUC_NULL_TERMINATED;
+void slack_api_disconnect(SlackAccount *sa);
 
 #define SLACK_PAGINATE_LIMIT	"limit", "100"
 

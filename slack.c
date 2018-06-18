@@ -214,9 +214,13 @@ static void slack_close(PurpleConnection *gc) {
 		sa->ping_timer = 0;
 	}
 
-	if (sa->rtm)
+	if (sa->rtm) {
 		purple_websocket_abort(sa->rtm);
+		sa->rtm = NULL;
+	}
 	g_hash_table_destroy(sa->rtm_call);
+
+	slack_api_disconnect(sa);
 
 	if (sa->roomlist)
 		purple_roomlist_unref(sa->roomlist);
