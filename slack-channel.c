@@ -66,7 +66,7 @@ SlackChannel *slack_channel_set(SlackAccount *sa, json_value *json, SlackChannel
 		type = SLACK_CHANNEL_MPIM;
 	else if (json_get_prop_boolean(json, "is_group", FALSE))
 		type = SLACK_CHANNEL_GROUP;
-	else if (json_get_prop_boolean(json, "is_member", FALSE))
+	else if (json_get_prop_boolean(json, "is_member", FALSE) || json_get_prop_boolean(json, "is_general", FALSE))
 		type = SLACK_CHANNEL_MEMBER;
 	else if (json_get_prop_boolean(json, "is_channel", FALSE))
 		type = SLACK_CHANNEL_PUBLIC;
