@@ -197,7 +197,7 @@ static void users_info_cb(SlackAccount *sa, gpointer data, json_value *json, con
 	if ((s = json_get_prop_strptr(json, "id")))
 		purple_notify_user_info_add_pair_plaintext(info, "id", s);
 	if ((s = json_get_prop_strptr(json, "name")))
-		purple_notify_user_info_add_pair_plaintext(info, "name", s);
+		purple_notify_user_info_add_pair_plaintext(info, "username", s);
 	if (json_get_prop_boolean(json, "deleted", FALSE))
 		purple_notify_user_info_add_pair_plaintext(info, "status", "deleted");
 	if (json_get_prop_boolean(json, "is_primary_owner", FALSE))
@@ -220,6 +220,8 @@ static void users_info_cb(SlackAccount *sa, gpointer data, json_value *json, con
 	json_value *prof = json_get_prop_type(json, "profile", object);
 	if (prof) {
 		purple_notify_user_info_add_section_header(info, "profile");
+		if ((s = json_get_prop_strptr(prof, "display_name")))
+			purple_notify_user_info_add_pair_plaintext(info, "name", s);
 		if ((s = json_get_prop_strptr(prof, "status_text")))
 			purple_notify_user_info_add_pair_plaintext(info, "status", s);
 		if ((s = json_get_prop_strptr(prof, "first_name")))
