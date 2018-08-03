@@ -320,9 +320,9 @@ static void slack_attachment_to_html(GString *html, SlackAccount *sa, json_value
 
 static void slack_file_to_html(GString *html, SlackAccount *sa, json_value *file) {
 	char *title = json_get_prop_strptr(file, "title");
-	char *url = json_get_prop_strptr(file, "permalink");
+	char *url = json_get_prop_strptr(file, "url_private");
 	if (!url)
-		url = json_get_prop_strptr(file, "url_private");
+		url = json_get_prop_strptr(file, "permalink");
 
 	g_string_append_printf(html, "<br/>%s<a href=\"%s\">%s</a>",
 		purple_account_get_string(sa->account, "attachment_prefix", "▎ "),
