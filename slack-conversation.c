@@ -9,7 +9,7 @@
 
 static SlackObject *conversation_update(SlackAccount *sa, json_value *json) {
 	if (json_get_prop_boolean(json, "is_im", FALSE))
-		return (SlackObject*)slack_im_set(sa, json, &json_value_none, FALSE);
+		return (SlackObject*)slack_im_set(sa, json, NULL, TRUE, FALSE);
 	else
 		return (SlackObject*)slack_channel_set(sa, json, SLACK_CHANNEL_UNKNOWN);
 }
@@ -35,10 +35,46 @@ static void conversations_list_cb(SlackAccount *sa, gpointer data, json_value *j
 		slack_login_step(sa);
 }
 
-void slack_conversations_load(SlackAccount *sa) {
+static inline void conversations_counts_channels(SlackAccount *sa, json_value *json, const char *prop, SlackChannelType type) {
+	json_value *chans = json_get_prop_type(json, prop, array);
+	if (!chans)
+		return;
+	for (unsigned i = 0; i < chans->u.array.length; i++)
+		slack_channel_set(sa, chans->u.array.values[i], type);
+}
+
+static void conversations_counts_cb(SlackAccount *sa, gpointer data, json_value *json, const char *error) {
+	if (error) {
+		purple_connection_error_reason(sa->gc,
+				PURPLE_CONNECTION_ERROR_NETWORK_ERROR, error);
+		return;
+	}
+
+	conversations_counts_channels(sa, json, "channels", SLACK_CHANNEL_PUBLIC);
+	conversations_counts_channels(sa, json, "groups", SLACK_CHANNEL_GROUP);
+	conversations_counts_channels(sa, json, "mpims", SLACK_CHANNEL_MPIM);
+	json_value *ims = json_get_prop_type(json, "ims", array);
+	for (unsigned i = 0; i < ims->u.array.length; i++) {
+		json_value *im = ims->u.array.values[i];
+		const char *user_id = json_get_prop_strptr(im, "user_id");
+		if (!user_id)
+			continue;
+		/* hopefully this is the right name? */
+		SlackUser *user = slack_user_set(sa, user_id, json_get_prop_strptr(im, "name"));
+		slack_im_set(sa, im, user, TRUE, FALSE);
+	}
+
+	slack_login_step(sa);
+}
+
+void slack_conversations_load(SlackAccount *sa, gboolean lazy) {
 	g_hash_table_remove_all(sa->channels);
 	g_hash_table_remove_all(sa->ims);
-	CONVERSATIONS_LIST_CALL(sa);
+	if (lazy)
+		/* undoumented */
+		slack_api_call(sa, conversations_counts_cb, NULL, "users.counts", "mpim_aware", "true", /* "only_relevant_ims", "true", */ NULL);
+	else
+		CONVERSATIONS_LIST_CALL(sa);
 }
 
 SlackObject *slack_conversation_get_conversation(SlackAccount *sa, PurpleConversation *conv) {

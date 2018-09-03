@@ -29,7 +29,7 @@ static inline SlackObject *slack_conversation_lookup_sid(SlackAccount *sa, const
 }
 
 /** @name Initialization */
-void slack_conversations_load(SlackAccount *sa);
+void slack_conversations_load(SlackAccount *sa, gboolean lazy);
 
 /** @name API */
 SlackObject *slack_conversation_get_conversation(SlackAccount *sa, PurpleConversation *conv);

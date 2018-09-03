@@ -168,6 +168,7 @@ static void slack_login(PurpleAccount *account) {
 }
 
 void slack_login_step(SlackAccount *sa) {
+	gboolean lazy = FALSE;
 #define MSG(msg) \
 	purple_connection_update_progress(sa->gc, msg, ++sa->login_step, 6)
 	switch (sa->login_step) {
@@ -183,12 +184,15 @@ void slack_login_step(SlackAccount *sa) {
 			MSG("RTM Connected");
 			break;
 		case 3: /* rtm_msg("hello") */
+			lazy = purple_account_get_bool(sa->account, "lazy_load", FALSE);
 			MSG("Loading Users");
-			slack_users_load(sa);
-			break;
+			if (!lazy) {
+				slack_users_load(sa);
+				break;
+			}
 		case 4:
 			MSG("Loading conversations");
-			slack_conversations_load(sa);
+			slack_conversations_load(sa, lazy);
 			break;
 		case 5:
 			slack_presence_sub(sa);
@@ -376,6 +380,9 @@ static void init_plugin(G_GNUC_UNUSED PurplePlugin *plugin)
 
 	prpl_info.protocol_options = g_list_append(prpl_info.protocol_options,
 		purple_account_option_string_new("Prepend attachment lines with this string", "attachment_prefix", "▎ "));
+
+	prpl_info.protocol_options = g_list_append(prpl_info.protocol_options,
+		purple_account_option_bool_new("Lazy loading: only request objects on demand", "lazy_load", FALSE));
 
 	prpl_info.protocol_options = g_list_append(prpl_info.protocol_options,
 		purple_account_option_int_new("Seconds to delay when ratelimited", "ratelimit_delay", 15));
