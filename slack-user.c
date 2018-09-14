@@ -271,14 +271,12 @@ static void avatar_cb(G_GNUC_UNUSED PurpleUtilFetchUrlData *fetch, gpointer data
 	g_return_if_fail(user);
 	if (error) {
 		purple_debug_warning("slack", "avatar download failed: %s\n", error);
-		g_object_unref(user);
-		return;
+	} else {
+		gpointer icon_data = g_memdup(buf, len);
+		purple_buddy_icons_set_for_user(sa->account, user->object.name, icon_data, len, user->avatar_hash);
 	}
 
-	gpointer icon_data = g_memdup(buf, len);
-	purple_buddy_icons_set_for_user(sa->account, user->object.name, icon_data, len, user->avatar_hash);
 	g_object_unref(user);
-
 	avatar_load_next(sa);
 }
 
