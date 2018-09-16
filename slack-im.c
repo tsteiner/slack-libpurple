@@ -59,15 +59,15 @@ SlackUser *slack_im_set(SlackAccount *sa, json_value *json, SlackUser *user, gbo
 			purple_debug_warning("IM %s for unknown user: %s\n", sid, user_id);
 			return user;
 		}
-		if (slack_object_id_cmp(user->im, id)) {
-			if (*user->im)
-				g_hash_table_remove(sa->ims, user->im);
-			slack_object_id_copy(user->im, id);
-			g_hash_table_insert(sa->ims, user->im, user);
-			changed = TRUE;
-		}
 	} else
 		g_warn_if_fail(slack_object_id_is(user->object.id, user_id));
+	if (slack_object_id_cmp(user->im, id)) {
+		if (*user->im)
+			g_hash_table_remove(sa->ims, user->im);
+		slack_object_id_copy(user->im, id);
+		g_hash_table_insert(sa->ims, user->im, user);
+		changed = TRUE;
+	}
 
 	if (is_open) {
 		if (!user->object.buddy) {

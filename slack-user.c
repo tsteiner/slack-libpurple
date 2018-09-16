@@ -79,7 +79,7 @@ SlackUser *slack_user_update(SlackAccount *sa, json_value *json) {
 	if (profile) {
 		const char *display = json_get_prop_strptr1(profile, "display_name");
 		if (display)
-			serv_got_alias(sa->gc, name, display);
+			serv_got_alias(sa->gc, user->object.name, display);
 
 		const char *status = json_get_prop_strptr1(profile, "status_text") ?: json_get_prop_strptr1(profile, "current_status");
 		g_free(user->status);
