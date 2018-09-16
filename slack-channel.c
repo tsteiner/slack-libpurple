@@ -60,13 +60,13 @@ SlackChannel *slack_channel_set(SlackAccount *sa, json_value *json, SlackChannel
 
 	SlackChannel *chan = g_hash_table_lookup(sa->channels, id);
 
-	     if (json_get_prop_boolean(json, "is_archived", FALSE))
+	if      (json_get_prop_boolean(json, "is_archived", FALSE))
 		type = SLACK_CHANNEL_DELETED;
-	else if (json_get_prop_boolean(json, "is_mpim", FALSE))
+	else if (json_get_prop_boolean(json, "is_mpim", FALSE) || type >= SLACK_CHANNEL_MPIM)
 		type = SLACK_CHANNEL_MPIM;
-	else if (json_get_prop_boolean(json, "is_group", FALSE))
+	else if (json_get_prop_boolean(json, "is_group", FALSE) || type >= SLACK_CHANNEL_GROUP)
 		type = SLACK_CHANNEL_GROUP;
-	else if (json_get_prop_boolean(json, "is_member", FALSE) || json_get_prop_boolean(json, "is_general", FALSE))
+	else if (json_get_prop_boolean(json, "is_member", FALSE) || json_get_prop_boolean(json, "is_general", FALSE) || type >= SLACK_CHANNEL_MEMBER)
 		type = SLACK_CHANNEL_MEMBER;
 	else if (json_get_prop_boolean(json, "is_channel", FALSE))
 		type = SLACK_CHANNEL_PUBLIC;
