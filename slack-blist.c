@@ -152,6 +152,7 @@ static void roomlist_cb(SlackAccount *sa, gpointer data, json_value *json, const
 	json = json_get_prop_type(json, expand->type >= SLACK_CHANNEL_GROUP ? "groups" : "channels", array);
 	if (!json || error) {
 		purple_notify_error(sa->gc, "Channel list error", "Could not read channel list", error);
+        purple_roomlist_set_in_progress(expand->list, FALSE);
 		free_roomlist_expand(expand);
 		return;
 	}
@@ -175,6 +176,7 @@ static void roomlist_cb(SlackAccount *sa, gpointer data, json_value *json, const
 		purple_roomlist_room_add(expand->list, room);
 	}
 
+    purple_roomlist_set_in_progress(expand->list, FALSE);
 	free_roomlist_expand(expand);
 }
 
@@ -209,6 +211,7 @@ void slack_roomlist_expand_category(PurpleRoomlist *list, PurpleRoomlistRoom *pa
 	else
 		return;
 	purple_roomlist_ref(list);
+    purple_roomlist_set_in_progress(list, TRUE);
 	slack_api_call(sa, roomlist_cb, expand, op, "exclude_archived", expand->archived ? "false" : "true", "exclude_members", "true", NULL);
 }
 

@@ -71,7 +71,7 @@ endif
 .PHONY: all
 all: $(LIBNAME)
 
-LDFLAGS = -shared
+LDFLAGS = -shared -L/usr/local/gettext/current/lib
 
 json.%: json-parser/json.%
 	cp $< $@

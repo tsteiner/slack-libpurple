@@ -49,8 +49,9 @@ static void slack_set_status(PurpleAccount *account, PurpleStatus *status) {
 	SlackAccount *sa = gc->proto_data;
 	g_return_if_fail(sa);
 
-	if (purple_status_is_active(status))
-		slack_api_call(sa, NULL, NULL, "users.setActive", NULL);
+    purple_debug_error("slack", "Setting status '%s'", purple_status_get_name(status));
+	if (!g_strcmp0(purple_status_get_name(status), "active"))
+		slack_api_call(sa, NULL, NULL, "users.setPresence", "presence", "auto", NULL);
 	else
 		slack_api_call(sa, NULL, NULL, "users.setPresence", "presence", "away", NULL);
 }

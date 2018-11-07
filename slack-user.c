@@ -26,6 +26,18 @@ static void slack_user_class_init(SlackUserClass *klass) {
 static void slack_user_init(SlackUser *self) {
 }
 
+/* TIM
+static void slack_buddy_icon_cb(G_GNUC_UNUSED PurpleUtilFetchUrlData *fetch, gpointer data, const gchar *buf, gsize len, const gchar *error) {
+    GHashTable *buddy_data = (GHashTable *) data;
+    char *username = g_hash_table_lookup(buddy_data, "username");
+    SlackAccount *sa = g_hash_table_lookup(buddy_data, "account");
+    
+    purple_buddy_icons_set_for_user(sa->account, username, (void*) g_memdup(buf, (guint) len), len, NULL);
+    g_free(username);
+    g_hash_table_destroy(buddy_data);
+}
+ */
+
 SlackUser *slack_user_update(SlackAccount *sa, json_value *json) {
 	const char *sid = json_get_prop_strptr(json, "id");
 	if (!sid)
@@ -89,6 +101,14 @@ SlackUser *slack_user_update(SlackAccount *sa, json_value *json) {
 
 		if (user == sa->self)
 			purple_account_set_user_info(sa->account, sa->self->status);
+        /* TIM
+        const char *icon_url = json_get_prop_strptr(profile, "image_72");
+        if (icon_url) {
+            GHashTable *buddy_data = g_hash_table_new(g_str_hash, g_str_equal);
+            g_hash_table_insert(buddy_data, "username", g_strdup(name));
+            g_hash_table_insert(buddy_data, "account", sa);
+            purple_util_fetch_url_request_len_with_account(sa->account, icon_url, TRUE, NULL, TRUE, NULL, FALSE, 4096*1024, slack_buddy_icon_cb, buddy_data);
+        } */
 	}
 
 	return user;
